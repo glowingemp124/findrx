@@ -1,8 +1,7 @@
-import { useState } from "react";
-import { Icon } from "@/components/icons";
 import { DataTable } from "@/components/data-table/data-table";
 import type { DataTableColumn } from "@/components/data-table/types";
 import { useClientTable } from "@/components/data-table/use-client-table";
+import { Icon } from "@/components/icons";
 import { Avatar } from "@/components/ui/avatar";
 import { Badge } from "@/components/ui/badge";
 import { Button, IconButton } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import { CreateStaffDialog, EditStaffDialog } from "@/features/admin/components/
 import { PERMISSIONS, type AdminSession } from "@/features/admin/types";
 import { formatUsPhone } from "@/features/requests/lib/formatters";
 import { useToast } from "@/lib/toast";
+import { useState } from "react";
 
 export function StaffPage() {
   const team = adminAuth.useTeam();

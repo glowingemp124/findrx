@@ -1,4 +1,3 @@
-import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TextField } from "@/components/ui/field";
@@ -19,6 +18,7 @@ import {
 import { cn } from "@/lib/cn";
 import { TIME_OPTIONS } from "@/lib/opening-hours";
 import { useToast } from "@/lib/toast";
+import { useState } from "react";
 
 type Form = Omit<PlatformSettings, "updatedAt" | "updatedBy" | "feeCents"> & { fee: string };
 
@@ -118,7 +118,7 @@ export function AdminSettingsPage() {
           </div>
         </Panel>
 
-        <Panel title="Search distance options" subtitle="Distances patients can pick from." delay={40}>
+        {/* <Panel title="Search distance options" subtitle="Distances patients can pick from." delay={40}>
           <div className="grid gap-4">
             <div className="flex flex-wrap gap-2" role="group" aria-label="Offered distances">
               {ALL_SEARCH_RADII.map((radius) => {
@@ -148,7 +148,7 @@ export function AdminSettingsPage() {
               <span className="font-semibold text-ink">Require phone code before posting</span>
             </Checkbox>
           </div>
-        </Panel>
+        </Panel> */}
 
         <Panel title="Data retention" subtitle="When request details are deleted." delay={80}>
           <div className="grid gap-4">
@@ -160,7 +160,7 @@ export function AdminSettingsPage() {
                 error={showErrors ? errors.retention : undefined}
                 onChange={(event) => edit({ retentionHours: Number(event.target.value.replace(/\D/g, "")) })}
               />
-              <Select label="Daily run time" value={form.purgeTime} options={TIME_OPTIONS} onChange={(purgeTime) => edit({ purgeTime })} />
+              {/* <Select label="Daily run time" value={form.purgeTime} options={TIME_OPTIONS} onChange={(purgeTime) => edit({ purgeTime })} /> */}
             </div>
             <Notice tone="accent" icon="shieldCheck">
               Anonymized transaction records are never deleted. Patient names and numbers go with the request.

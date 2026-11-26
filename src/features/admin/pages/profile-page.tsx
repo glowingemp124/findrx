@@ -1,5 +1,3 @@
-import { useState, type FormEvent } from "react";
-import { Navigate, useParams } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { ChangePasswordPanel } from "@/components/layout/change-password-panel";
 import { AvatarUpload } from "@/components/ui/avatar-upload";
@@ -18,6 +16,8 @@ import { PERMISSIONS, type AdminSession } from "@/features/admin/types";
 import { hasErrors, type FieldErrors } from "@/features/auth/validation";
 import { isUsMobile } from "@/features/client/lib/validate-draft";
 import { useToast } from "@/lib/toast";
+import { useState, type FormEvent } from "react";
+import { Navigate, useParams } from "react-router-dom";
 
 function SecurityPanel({ account }: { account: AdminSession }) {
   const { push } = useToast();
