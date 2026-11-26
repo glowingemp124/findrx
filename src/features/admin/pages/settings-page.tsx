@@ -1,14 +1,14 @@
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
+// import { Checkbox } from "@/components/ui/checkbox";
 import { TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { Panel } from "@/components/ui/panel";
-import { Select } from "@/components/ui/select";
+// import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { adminAuth } from "@/features/admin/auth/admin-auth-service";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
 import {
-  ALL_SEARCH_RADII,
+  // ALL_SEARCH_RADII,
   missingPlaceholders,
   platformSettings,
   SMS_TEMPLATES,
@@ -16,7 +16,7 @@ import {
   type SmsTemplateId,
 } from "@/features/platform/platform-settings";
 import { cn } from "@/lib/cn";
-import { TIME_OPTIONS } from "@/lib/opening-hours";
+// import { TIME_OPTIONS } from "@/lib/opening-hours";
 import { useToast } from "@/lib/toast";
 import { useState } from "react";
 
@@ -65,12 +65,12 @@ export function AdminSettingsPage() {
     push("Settings saved. Changes are live.");
   };
 
-  const toggleRadius = (radius: number) =>
-    edit({
-      searchRadii: form.searchRadii.includes(radius)
-        ? form.searchRadii.filter((item) => item !== radius)
-        : [...form.searchRadii, radius].sort((a, b) => a - b),
-    });
+  // const toggleRadius = (radius: number) =>
+  //   edit({
+  //     searchRadii: form.searchRadii.includes(radius)
+  //       ? form.searchRadii.filter((item) => item !== radius)
+  //       : [...form.searchRadii, radius].sort((a, b) => a - b),
+  //   });
 
   return (
     <div className="grid gap-6">
