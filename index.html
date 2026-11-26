@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>FindRx</title>
+    <meta name="description" content="Post a Blind Request and nearby pharmacies check their shelves for your medication. No account needed." />
+    <meta name="theme-color" content="#0C0F12" />
+    <link rel="icon" href="/logo/web/favicon.svg" type="image/svg+xml" />
+    <link rel="icon" href="/logo/web/favicon.ico" sizes="any" />
+    <link rel="icon" href="/logo/web/favicon-32.png" type="image/png" sizes="32x32" />
+    <link rel="icon" href="/logo/web/favicon-16.png" type="image/png" sizes="16x16" />
+    <link rel="apple-touch-icon" href="/logo/web/apple-touch-icon.png" />
+    <link rel="manifest" href="/logo/web/site.webmanifest" />
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="FindRx" />
+    <meta property="og:title" content="FindRx — Find your medication" />
+    <meta property="og:description" content="Nearby pharmacies check their shelves for your medication. No account needed." />
+    <meta property="og:image" content="/logo/web/og-image.png" />
+    <meta name="twitter:card" content="summary_large_image" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Urbanist:wght@400..700&display=swap"
+      rel="stylesheet"
+    />
+    <script>
+      (function () {
+        try {
+          var theme = localStorage.getItem("findrx-theme");
+          if (theme !== "light" && theme !== "dark") {
+            theme = matchMedia("(prefers-color-scheme: dark)").matches
+              ? "dark"
+              : "light";
+          }
+          document.documentElement.dataset.theme = theme;
+        } catch (e) {}
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>
