@@ -1,4 +1,3 @@
-import { platformSettings } from "@/features/platform/platform-settings";
 import { clientConfig } from "@/features/requests/config";
 import { resolvePhase } from "@/features/requests/lib/request-phase";
 import type { BlindRequest } from "@/features/requests/types";
@@ -7,8 +6,7 @@ import { createPersistentStore } from "@/lib/persistent-store";
 export type ClaimOutcome = "awaiting_payment" | "paid" | "expired";
 
 /**
- * One claim by one pharmacy. Outlives the request itself: once the request's data is deleted
- * (24 hours after it closes) the entry keeps only its counts, which is what History shows for earlier days.
+ * One claim by one pharmacy. The medication stays on the entry; request records are kept.
  */
 export type LedgerEntry = {
   id: string;
@@ -17,7 +15,7 @@ export type LedgerEntry = {
   claimedAt: number;
   outcome: ClaimOutcome;
   resolvedAt: number | null;
-  /** Medication summary; null once the request's details have been deleted. */
+  /** Medication summary. Kept with the claim. */
   medication: string | null;
   transactionId: string | null;
   /** Internal team note: the patient has been called. */
@@ -40,12 +38,6 @@ function resolve(entry: LedgerEntry, request: BlindRequest | undefined, now: num
   }
   const lapsed = !stillMine || (request && resolvePhase(request, now) === "checkout_expired") || now >= deadline;
   return lapsed ? { ...entry, outcome: "expired", resolvedAt: Math.min(deadline, now) } : entry;
-}
-
-/** Drops details once the request's own retention period has passed. */
-function forget(entry: LedgerEntry, now: number): LedgerEntry {
-  if (entry.resolvedAt === null || entry.medication === null || now < entry.resolvedAt + platformSettings.retentionMs()) return entry;
-  return { ...entry, medication: null, transactionId: null };
 }
 
 export const claimLedger = {
@@ -71,8 +63,7 @@ export const claimLedger = {
     store.update((entries) => {
       let changed = false;
       const next = entries.map((entry) => {
-        const resolved = entry.outcome === "awaiting_payment" ? resolve(entry, requests.find((r) => r.id === entry.requestId), now) : entry;
-        const updated = forget(resolved, now);
+        const updated = entry.outcome === "awaiting_payment" ? resolve(entry, requests.find((r) => r.id === entry.requestId), now) : entry;
         if (updated !== entry) changed = true;
         return updated;
       });

@@ -1,4 +1,3 @@
-import { platformSettings } from "@/features/platform/platform-settings";
 import { clientConfig } from "@/features/requests/config";
 import type { BlindRequest, RequestPhase } from "@/features/requests/types";
 
@@ -20,21 +19,7 @@ export function phaseDeadline(request: BlindRequest): number | null {
   return request.postedAt + clientConfig.queueWindowMs;
 }
 
-/** Whether the request's data should already have been deleted. */
-export function isPurgeable(request: BlindRequest, now: number): boolean {
-  const phase = resolvePhase(request, now);
-  const { verificationTtlMs, checkoutWindowMs } = clientConfig;
-  const retentionMs = platformSettings.retentionMs();
-  switch (phase) {
-    case "pending_verification":
-      return now >= request.createdAt + verificationTtlMs + retentionMs;
-    case "connected":
-      return now >= (request.payment?.paidAt ?? now) + retentionMs;
-    case "closed":
-      return now >= (request.closedAt ?? now) + retentionMs;
-    case "checkout_expired":
-      return now >= (request.claim?.claimedAt ?? now) + checkoutWindowMs + retentionMs;
-    default:
-      return false;
-  }
+/** Records are kept so a patient can look them up and FindRx can review pharmacy performance. */
+export function isPurgeable(_request: BlindRequest, _now: number): boolean {
+  return false;
 }

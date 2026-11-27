@@ -1,4 +1,3 @@
-import { isUsMobile } from "@/features/client/lib/validate-draft";
 import type { PharmacyProfile } from "@/features/auth/types";
 
 export type FieldErrors<T extends string> = Partial<Record<T, string>>;
@@ -42,11 +41,10 @@ export function validatePharmacy(values: PharmacyProfile) {
   return compact({
     name: values.name.trim().length < 2 ? "Enter the pharmacy's name." : undefined,
     npi: /^\d{10}$/.test(values.npi) ? undefined : "Enter the pharmacy's 10-digit NPI.",
-    phone: !values.phone.trim() ? "Enter the pharmacy's phone." : !isUsMobile(values.phone) ? "Enter a 10-digit US number." : undefined,
+    phone: values.phone.replace(/\D/g, "").length < 8 || values.phone.replace(/\D/g, "").length > 15 ? "Enter the pharmacy phone." : undefined,
     street: values.street.trim().length < 3 ? "Enter the street address." : undefined,
     city: values.city.trim().length < 2 ? "Enter the city." : undefined,
-    state: values.state ? undefined : "Choose a state.",
-    zip: /^\d{5}$/.test(values.zip.trim()) ? undefined : "Enter a 5-digit ZIP.",
+    zip: values.zip.trim() && !/^[\p{L}\d][\p{L}\d -]{1,11}$/u.test(values.zip.trim()) ? "Enter the postal code." : undefined,
   });
 }
 

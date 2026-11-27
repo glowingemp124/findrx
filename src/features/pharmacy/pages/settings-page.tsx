@@ -5,10 +5,12 @@ import { AvatarUpload } from "@/components/ui/avatar-upload";
 import { ChangePasswordPanel } from "@/components/layout/change-password-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Notice } from "@/components/ui/notice";
 import { TextField } from "@/components/ui/field";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
-import { Select } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
+import { PhoneField } from "@/features/client/components/phone-field";
+import { PharmacyLocationMap } from "@/features/auth/components/pharmacy-location-map";
 import { authService } from "@/features/auth/auth-service";
 import type { PharmacyProfile } from "@/features/auth/types";
 import { hasErrors, validatePharmacy, type FieldErrors } from "@/features/auth/validation";
@@ -17,7 +19,7 @@ import { PageHeader } from "@/features/pharmacy/components/page-header";
 import { usePharmacyWorkspace } from "@/features/pharmacy/hooks/pharmacy-workspace";
 import { useToast } from "@/lib/toast";
 import { invalidDays } from "@/lib/opening-hours";
-import { US_STATE_OPTIONS } from "@/lib/us-states";
+import { profileChanges, profileFields } from "@/features/pharmacy/services/profile-changes";
 
 function Section({ title, description, children, delay = 0 }: { title: string; description: string; children: ReactNode; delay?: number }) {
   return (
@@ -35,13 +37,11 @@ function RequestsSection() {
   const { account } = usePharmacyWorkspace();
   const { push } = useToast();
   return (
-    <Section title="Requests" description="Pause when you're closed or short-staffed. Patients won't be affected.">
+    <Section title="Requests" description="On or off.">
       <div className="flex items-center justify-between gap-4 rounded-[16px] bg-side-well p-4">
         <div>
           <p className="font-semibold">{account.acceptingRequests ? "Accepting requests" : "Paused"}</p>
-          <p className="text-sm text-muted">
-            {account.acceptingRequests ? "You can see and claim new requests." : "You can still see requests but can't claim them."}
-          </p>
+          <p className="text-sm text-muted">{account.acceptingRequests ? "Accepting" : "Paused"}</p>
         </div>
         <Switch
           label="Accepting requests"
@@ -59,62 +59,78 @@ function RequestsSection() {
 function PharmacySection() {
   const { account } = usePharmacyWorkspace();
   const { push } = useToast();
+  const changes = profileChanges.use();
+  const pending = changes.find((item) => item.pharmacyId === account.id && item.status === "pending");
   const [form, setForm] = useState<PharmacyProfile>(account.pharmacy);
+  const [locationDetail, setLocationDetail] = useState(
+    [account.pharmacy.street, account.pharmacy.city, account.pharmacy.state, account.pharmacy.zip].filter(Boolean).join(", "),
+  );
   const [errors, setErrors] = useState<FieldErrors<keyof PharmacyProfile>>({});
   const edit = (changes: Partial<PharmacyProfile>) => setForm((current) => ({ ...current, ...changes }));
-  // Hours have their own section and save button.
-  const dirty = JSON.stringify({ ...form, hours: null }) !== JSON.stringify({ ...account.pharmacy, hours: null });
+  const dirty = JSON.stringify(profileFields(form)) !== JSON.stringify(profileFields(account.pharmacy));
 
   const submit = (event: FormEvent) => {
     event.preventDefault();
     const next = validatePharmacy(form);
     setErrors(next);
     if (hasErrors(next)) return;
-    authService.updatePharmacy({
+    const result = profileChanges.submit(account.id, form.name.trim(), profileFields(account.pharmacy), profileFields({
       ...form,
-      hours: account.pharmacy.hours,
       name: form.name.trim(),
       street: form.street.trim(),
       city: form.city.trim(),
-    });
-    push("Pharmacy details saved.");
+    }));
+    if (!result.ok) {
+      push(result.error);
+      return;
+    }
+    push("Change request sent.");
   };
 
   return (
-    <Section title="Pharmacy" description="Shown to patients after they pay, so they can call and find you." delay={60}>
+    <Section title="Pharmacy" description="FindRx reviews this before it goes live." delay={60}>
       <form noValidate onSubmit={submit} className="grid gap-4">
+        {pending ? (
+          <Notice tone="warn" icon="info">
+            Waiting for FindRx. Sending again replaces it.
+          </Notice>
+        ) : null}
         <div className="grid gap-4 sm:grid-cols-2">
           <TextField label="Pharmacy name" value={form.name} error={errors.name} onChange={(event) => edit({ name: event.target.value })} />
-          <TextField label="Phone" type="tel" value={form.phone} error={errors.phone} onChange={(event) => edit({ phone: event.target.value })} />
+          <PhoneField id="pharmacy-settings-phone" label="Phone" value={form.phone} error={errors.phone} onChange={(phone) => edit({ phone })} />
         </div>
-        <TextField label="NPI number" value={form.npi} disabled hint="Verified by FindRx. Contact support to change it." />
-        <TextField label="Street address" value={form.street} error={errors.street} onChange={(event) => edit({ street: event.target.value })} />
-        <div className="grid gap-4 sm:grid-cols-[1fr_170px_120px]">
+        <TextField
+          label="NPI number"
+          value={form.npi}
+          error={errors.npi}
+          onChange={(event) => edit({ npi: event.target.value.replace(/\D/g, "").slice(0, 10) })}
+        />
+        <PharmacyLocationMap
+          detail={locationDetail}
+          error={errors.street || errors.city || errors.zip}
+          onPick={(location) => {
+            setLocationDetail(location.detail);
+            edit({ street: location.street, city: location.city, state: location.state, zip: location.zip });
+          }}
+        />
+        <TextField label="Street" value={form.street} error={errors.street} onChange={(event) => edit({ street: event.target.value })} />
+        <div className="grid gap-4 sm:grid-cols-3">
           <TextField label="City" value={form.city} error={errors.city} onChange={(event) => edit({ city: event.target.value })} />
-          <Select label="State" value={form.state || null} options={US_STATE_OPTIONS} error={errors.state} onChange={(state) => edit({ state })} />
-          <TextField
-            label="ZIP"
-            inputMode="numeric"
-            value={form.zip}
-            error={errors.zip}
-            onChange={(event) => edit({ zip: event.target.value.replace(/\D/g, "").slice(0, 5) })}
-          />
+          <TextField label="Region" value={form.state} onChange={(event) => edit({ state: event.target.value })} />
+          <TextField label="Postal code" value={form.zip} error={errors.zip} onChange={(event) => edit({ zip: event.target.value })} />
         </div>
-        <Checkbox
-          checked={form.canCompound}
-          onChange={(canCompound) => edit({ canCompound })}
-          description="Turn on to also see requests that need compounding."
-        >
+        <Checkbox checked={form.canCompound} onChange={(canCompound) => edit({ canCompound })}>
           <span className="font-semibold text-ink">We compound medications</span>
         </Checkbox>
         <div className="flex gap-2.5">
           <Button type="submit" variant="primary" disabled={!dirty}>
-            Save changes
+            Send to FindRx for review
           </Button>
           {dirty ? (
             <Button
               onClick={() => {
                 setForm(account.pharmacy);
+                setLocationDetail([account.pharmacy.street, account.pharmacy.city, account.pharmacy.state, account.pharmacy.zip].filter(Boolean).join(", "));
                 setErrors({});
               }}
             >
@@ -143,7 +159,7 @@ function HoursSection() {
   };
 
   return (
-    <Section title="Opening hours" description="Shown to patients with your address, so they know when to call or visit." delay={180}>
+    <Section title="Opening hours" description="Saves immediately." delay={180}>
       <div className="grid gap-4">
         <OpeningHoursEditor value={hours} onChange={setHours} invalid={showErrors ? invalid : []} />
         <div className="flex gap-2.5">
@@ -186,7 +202,7 @@ function ContactSection() {
   };
 
   return (
-    <Section title="Your details" description="Your photo and name, as your team sees them in FindRx." delay={120}>
+    <Section title="Your details" description="Name and photo." delay={120}>
       <form noValidate onSubmit={submit} className="grid gap-4">
         <AvatarUpload
           name={account.contactName}
@@ -198,9 +214,9 @@ function ContactSection() {
         />
         <div className="grid gap-4 sm:grid-cols-[1fr_160px]">
           <TextField label="Your name" value={name} error={error} onChange={(event) => setName(event.target.value)} />
-          <TextField label="Title (optional)" placeholder="PharmD" value={title} onChange={(event) => setTitle(event.target.value)} />
+          <TextField label="Title" placeholder="PharmD" value={title} onChange={(event) => setTitle(event.target.value)} />
         </div>
-        <TextField label="Work email" value={account.email} disabled hint="Contact FindRx support to change your sign-in email." />
+        <TextField label="Work email" value={account.email} disabled />
         <div>
           <Button type="submit" variant="primary" disabled={!dirty}>
             Save changes
@@ -223,14 +239,14 @@ export function SettingsPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="Settings" subtitle="Your pharmacy, your account and whether you're taking requests." />
+      <PageHeader title="Settings" subtitle="Pharmacy and account." />
       <SegmentedTabs label="Settings sections" items={TABS} activeKey={active} />
       {active === "general" ? (
         <>
           <RequestsSection />
           <PharmacySection />
-          <ContactSection />
           <HoursSection />
+          <ContactSection />
         </>
       ) : (
         <ChangePasswordPanel onSubmit={authService.changePassword} />

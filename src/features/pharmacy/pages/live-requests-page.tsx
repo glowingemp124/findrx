@@ -13,6 +13,8 @@ import { pharmacyConfig } from "@/features/pharmacy/config";
 import { usePharmacyWorkspace } from "@/features/pharmacy/hooks/pharmacy-workspace";
 import type { FeedItem } from "@/features/pharmacy/lib/feed";
 import { claimRequest } from "@/features/pharmacy/services/claim-request";
+import { matchesStock, stockList } from "@/features/pharmacy/services/stock-list";
+import { requestFee, requestService } from "@/features/requests/services/request-service";
 
 const CLAIM_ERRORS = {
   taken: "Another pharmacy claimed this one first.",
@@ -23,14 +25,21 @@ export function LiveRequestsPage() {
   const { account, feed, stats, now, claimBlock } = usePharmacyWorkspace();
   const { push } = useToast();
   const navigate = useNavigate();
+  const stock = stockList.use(account.id);
   const [claiming, setClaiming] = useState<FeedItem | null>(null);
 
   const confirmClaim = (item: FeedItem) => {
     const result = claimRequest(account, item.id);
     if (!result.ok) return CLAIM_ERRORS[result.reason];
     setClaiming(null);
-    push(`Claimed ${item.medication}`, { description: "The patient has 1 hour to pay. You'll see their details once they do." });
-    navigate(paths.pharmacy.claimsTab("awaiting"));
+    const posted = requestService.find(item.id);
+    const free = posted ? requestFee(posted) === 0 : false;
+    push(`Claimed ${item.medication}`, {
+      description: free
+        ? "The patient is connected now. Their details are on Connected."
+        : "The patient has 1 hour to connect. You'll see their details once they do.",
+    });
+    navigate(free ? paths.pharmacy.claimsTab("paid") : paths.pharmacy.claimsTab("awaiting"));
     return null;
   };
 
@@ -51,7 +60,7 @@ export function LiveRequestsPage() {
 
       <section aria-label="Today at a glance" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <StatCard label="Open near you" value={feed.length} />
-        <StatCard label="Awaiting payment" value={stats.awaitingPayment} delay={60} />
+        <StatCard label="Waiting to connect" value={stats.awaitingPayment} delay={60} />
         <StatCard label="Claims this hour" value={stats.claimsThisHour} limit={pharmacyConfig.maxClaimsPerHour} delay={120} />
         <StatCard label="Claims today" value={stats.claimsToday} limit={pharmacyConfig.maxClaimsPerDay} delay={180} />
       </section>
@@ -75,6 +84,7 @@ export function LiveRequestsPage() {
               now={now}
               disabled={claimBlock !== null}
               onClaim={setClaiming}
+              onList={matchesStock(item.medication, stock)}
               delay={Math.min(index, 6) * 50}
             />
           ))

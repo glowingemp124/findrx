@@ -1,14 +1,11 @@
 import { Button } from "@/components/ui/button";
-// import { Checkbox } from "@/components/ui/checkbox";
 import { TextField } from "@/components/ui/field";
 import { Notice } from "@/components/ui/notice";
 import { Panel } from "@/components/ui/panel";
-// import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { adminAuth } from "@/features/admin/auth/admin-auth-service";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
 import {
-  // ALL_SEARCH_RADII,
   missingPlaceholders,
   platformSettings,
   SMS_TEMPLATES,
@@ -16,7 +13,6 @@ import {
   type SmsTemplateId,
 } from "@/features/platform/platform-settings";
 import { cn } from "@/lib/cn";
-// import { TIME_OPTIONS } from "@/lib/opening-hours";
 import { useToast } from "@/lib/toast";
 import { useState } from "react";
 
@@ -36,14 +32,13 @@ export function AdminSettingsPage() {
   const edit = (changes: Partial<Form>) => setForm((current) => ({ ...current, ...changes }));
 
   const fee = Number(form.fee);
-  const retention = Number(form.retentionHours);
+  const maxMiles = Number(form.maxSearchMiles);
   const errors = {
-    fee: !/^\d+(\.\d{1,2})?$/.test(form.fee.trim()) || fee < 0.5 || fee > 100 ? "Enter an amount between $0.50 and $100." : undefined,
-    radii: form.searchRadii.length === 0 ? "Offer at least one distance." : undefined,
-    retention: !Number.isInteger(retention) || retention < 1 || retention > 720 ? "Enter whole hours between 1 and 720." : undefined,
+    fee: !/^\d+(\.\d{1,2})?$/.test(form.fee.trim()) || fee < 0 || fee > 100 ? "Enter an amount from $0 to $100. $0 skips payment." : undefined,
+    maxMiles: !Number.isInteger(maxMiles) || maxMiles < 5 || maxMiles > 100 ? "Enter a whole number from 5 to 100." : undefined,
     templates: SMS_TEMPLATES.filter((item) => missingPlaceholders(item.id, form.smsTemplates[item.id]).length > 0).map((item) => item.id),
   };
-  const valid = !errors.fee && !errors.radii && !errors.retention && errors.templates.length === 0;
+  const valid = !errors.fee && !errors.maxMiles && errors.templates.length === 0;
   const dirty = JSON.stringify(form) !== JSON.stringify(toForm(saved));
   const missing = missingPlaceholders(template, form.smsTemplates[template]);
 
@@ -54,9 +49,12 @@ export function AdminSettingsPage() {
       {
         feeCents: Math.round(fee * 100),
         searchRadii: form.searchRadii,
-        requirePhoneCode: form.requirePhoneCode,
-        retentionHours: retention,
+        maxSearchMiles: maxMiles,
+        requirePhoneCode: false,
+        retentionHours: form.retentionHours,
         purgeTime: form.purgeTime,
+        privacyText: form.privacyText,
+        termsText: form.termsText,
         smsTemplates: form.smsTemplates,
       },
       account.name,
@@ -64,13 +62,6 @@ export function AdminSettingsPage() {
     setShowErrors(false);
     push("Settings saved. Changes are live.");
   };
-
-  // const toggleRadius = (radius: number) =>
-  //   edit({
-  //     searchRadii: form.searchRadii.includes(radius)
-  //       ? form.searchRadii.filter((item) => item !== radius)
-  //       : [...form.searchRadii, radius].sort((a, b) => a - b),
-  //   });
 
   return (
     <div className="grid gap-6">
@@ -113,59 +104,25 @@ export function AdminSettingsPage() {
               onChange={(event) => edit({ fee: event.target.value.replace(/[^\d.]/g, "") })}
             />
             <Notice tone="warn" icon="info">
-              The new fee applies to requests posted after you save. Requests already posted keep their fee.
+              {fee === 0
+                ? "At $0, a confirmed request connects straight away. The patient never sees a payment page."
+                : "The new fee applies to requests posted after you save. Requests already posted keep their fee."}
             </Notice>
+            <TextField
+              label="Maximum search distance (miles)"
+              inputMode="numeric"
+              value={String(form.maxSearchMiles)}
+              error={showErrors ? errors.maxMiles : undefined}
+              hint="Numbered miles on the patient slider. The last stop is Any, which has no distance limit."
+              onChange={(event) => edit({ maxSearchMiles: Number(event.target.value.replace(/\D/g, "")) })}
+            />
           </div>
         </Panel>
 
-        {/* <Panel title="Search distance options" subtitle="Distances patients can pick from." delay={40}>
-          <div className="grid gap-4">
-            <div className="flex flex-wrap gap-2" role="group" aria-label="Offered distances">
-              {ALL_SEARCH_RADII.map((radius) => {
-                const on = form.searchRadii.includes(radius);
-                return (
-                  <button
-                    key={radius}
-                    type="button"
-                    aria-pressed={on}
-                    onClick={() => toggleRadius(radius)}
-                    className={cn(
-                      "cursor-pointer rounded-full px-4 py-2 text-md font-semibold ring-1 transition-colors duration-200",
-                      on ? "bg-accent text-accent-ink ring-accent" : "text-ink-2 ring-line-strong hover:bg-side-hover",
-                    )}
-                  >
-                    {radius} mi
-                  </button>
-                );
-              })}
-            </div>
-            {showErrors && errors.radii ? <p className="text-xs font-semibold text-bad">{errors.radii}</p> : null}
-            <Checkbox
-              checked={form.requirePhoneCode}
-              onChange={(requirePhoneCode) => edit({ requirePhoneCode })}
-              description="Patients confirm their number with a texted code before the request goes out."
-            >
-              <span className="font-semibold text-ink">Require phone code before posting</span>
-            </Checkbox>
-          </div>
-        </Panel> */}
-
-        <Panel title="Data retention" subtitle="When request details are deleted." delay={80}>
-          <div className="grid gap-4">
-            <div className="grid gap-4 sm:grid-cols-2">
-              <TextField
-                label="Delete closed requests after (hours)"
-                inputMode="numeric"
-                value={String(form.retentionHours)}
-                error={showErrors ? errors.retention : undefined}
-                onChange={(event) => edit({ retentionHours: Number(event.target.value.replace(/\D/g, "")) })}
-              />
-              {/* <Select label="Daily run time" value={form.purgeTime} options={TIME_OPTIONS} onChange={(purgeTime) => edit({ purgeTime })} /> */}
-            </div>
-            <Notice tone="accent" icon="shieldCheck">
-              Anonymized transaction records are never deleted. Patient names and numbers go with the request.
-            </Notice>
-          </div>
+        <Panel title="Records" subtitle="Requests, claims, and pharmacy actions are kept." delay={80}>
+          <Notice tone="accent" icon="shieldCheck">
+            Patient requests stay available so someone can look them up with their phone number. Pharmacy claims and reports stay available so you can see who accepts work and then doesn't furnish it.
+          </Notice>
         </Panel>
 
         <Panel title="Text message templates" subtitle="What patients receive by SMS." className="lg:col-span-2 xl:col-span-3" delay={120}>

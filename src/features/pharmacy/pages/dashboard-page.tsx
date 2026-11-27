@@ -12,6 +12,7 @@ import { Panel } from "@/components/ui/panel";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
 import { PageHeader } from "@/features/pharmacy/components/page-header";
 import { usePharmacyWorkspace } from "@/features/pharmacy/hooks/pharmacy-workspace";
+import { stockList } from "@/features/pharmacy/services/stock-list";
 import { claimsByHour, claimSeries, RANGES, rangeStart, ratio, timeToPayHistogram, topMedications, totals, type RangeKey } from "@/features/pharmacy/lib/stats";
 import { transactionStore } from "@/features/requests/services/transaction-store";
 import { median } from "@/lib/math";
@@ -19,7 +20,7 @@ import { median } from "@/lib/math";
 const number = (value: number) => Math.round(value).toLocaleString("en-US");
 const percent = (value: number) => `${Math.round(value * 100)}%`;
 
-function ActionRow({ to, icon, count, children }: { to: string; icon: "inbox" | "clock" | "phone"; count: number; children: ReactNode }) {
+function ActionRow({ to, icon, count, children }: { to: string; icon: "inbox" | "clock" | "phone" | "upload"; count: number; children: ReactNode }) {
   return (
     <Link to={to} className="flex items-center gap-3 rounded-[14px] px-3 py-3 ring-1 ring-line transition-colors hover:bg-side-hover">
       <span className="grid size-9 shrink-0 place-items-center rounded-full bg-accent-soft text-accent-text">
@@ -37,6 +38,7 @@ export function PharmacyDashboardPage() {
   const [params] = useSearchParams();
   const range = (RANGES.find((item) => item.key === params.get("range"))?.key ?? "7d") as RangeKey;
   const { account, ledger, feed, stats, now } = usePharmacyWorkspace();
+  const stock = stockList.use(account.id);
   const transactions = transactionStore.use();
 
   const data = useMemo(() => {
@@ -73,8 +75,8 @@ export function PharmacyDashboardPage() {
 
       <section aria-label="Key figures" className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
         <KpiCard label="Claims" value={total.claimed} format={number} caption="Requests you confirmed" />
-        <KpiCard label="Patients connected" value={total.paid} format={number} caption="Paid and called you" delay={40} />
-        <KpiCard label="Conversion" value={ratio(total.paid, total.claimed - total.awaiting)} format={percent} caption="Paid ÷ settled claims" delay={80} />
+        <KpiCard label="Patients connected" value={total.paid} format={number} caption="Ready for you to call" delay={40} />
+        <KpiCard label="Conversion" value={ratio(total.paid, total.claimed - total.awaiting)} format={percent} caption="Connected ÷ settled claims" delay={80} />
         <KpiCard
           label="Median time to claim"
           value={data.medianClaimMinutes}
@@ -88,29 +90,32 @@ export function PharmacyDashboardPage() {
         <Panel
           title="Claims and patients connected"
           subtitle={range === "today" ? "By hour, today" : "By day"}
-          action={<ChartLegend items={[{ label: "Claims", color: "var(--accent-soft-solid)" }, { label: "Paid", color: "var(--accent)" }]} />}
+          action={<ChartLegend items={[{ label: "Claims", color: "var(--accent-soft-solid)" }, { label: "Connected", color: "var(--accent)" }]} />}
         >
           <BarChart
             ariaLabel="Claims and paid claims over time"
             data={data.series.map((item) => ({ label: item.label, detail: item.detail, value: item.claimed, inner: item.paid }))}
             valueLabel="Claims"
-            innerLabel="Paid"
+            innerLabel="Connected"
             showValues={data.series.length <= 8}
             tickEvery={tickEvery}
             height={260}
           />
         </Panel>
 
-        <Panel title="Right now" subtitle="What needs you today" delay={60}>
+        <Panel title="Right now" delay={60}>
           <div className="grid gap-2.5">
+            <ActionRow to={paths.pharmacy.medications} icon="upload" count={stock.length}>
+              Import medications
+            </ActionRow>
             <ActionRow to={paths.pharmacy.requests} icon="inbox" count={feed.length}>
               Open requests near you
             </ActionRow>
             <ActionRow to={paths.pharmacy.claimsTab("awaiting")} icon="clock" count={stats.awaitingPayment}>
-              Waiting for the patient to pay
+              Waiting for the patient to connect
             </ActionRow>
             <ActionRow to={paths.pharmacy.claimsTab("paid")} icon="phone" count={stats.toContact}>
-              Paid: call the patient
+              Connected: call the patient
             </ActionRow>
           </div>
         </Panel>
@@ -122,9 +127,9 @@ export function PharmacyDashboardPage() {
             ariaLabel="Claim outcomes"
             centerLabel="Claims"
             data={[
-              { label: "Patient paid", value: total.paid, color: "var(--chart-3)" },
-              { label: "Patient didn't pay", value: total.expired, color: "var(--chart-4)" },
-              { label: "Awaiting payment", value: total.awaiting, color: "var(--chart-1)" },
+              { label: "Patient connected", value: total.paid, color: "var(--chart-3)" },
+              { label: "Didn't connect", value: total.expired, color: "var(--chart-4)" },
+              { label: "Waiting to connect", value: total.awaiting, color: "var(--chart-1)" },
             ]}
           />
         </Panel>
@@ -134,13 +139,13 @@ export function PharmacyDashboardPage() {
       </div>
 
       <div className="grid gap-4 lg:grid-cols-3">
-        <Panel title="Most requested from you" subtitle="Paid matches in this period" delay={40}>
-          {data.medications.length ? <RankedBars items={data.medications} /> : <p className="text-md text-muted">No paid matches in this period yet.</p>}
+        <Panel title="Most requested from you" subtitle="Connections in this period" delay={40}>
+          {data.medications.length ? <RankedBars items={data.medications} /> : <p className="text-md text-muted">No connections in this period yet.</p>}
         </Panel>
-        <Panel title="How fast patients pay" subtitle="Minutes from your claim to payment" delay={80}>
-          <BarChart ariaLabel="Minutes from claim to payment" data={data.payTimes} valueLabel="Patients" height={200} />
+        <Panel title="How fast patients connect" subtitle="Minutes from your claim to the connection" delay={80}>
+          <BarChart ariaLabel="Minutes from claim to connection" data={data.payTimes} valueLabel="Patients" height={200} />
         </Panel>
-        <Panel title="How patients get it" subtitle="Paid matches in this period" delay={120}>
+        <Panel title="How patients get it" subtitle="Connections in this period" delay={120}>
           <div className="grid gap-5">
             {[
               { label: "Pickup", value: data.paidHere.length - data.delivery, color: "var(--chart-1)" },
@@ -161,7 +166,7 @@ export function PharmacyDashboardPage() {
                 </span>
               </div>
             ))}
-            <p className="text-sm text-muted">From {data.paidHere.length} paid matches.</p>
+            <p className="text-sm text-muted">From {data.paidHere.length} connections.</p>
           </div>
         </Panel>
       </div>

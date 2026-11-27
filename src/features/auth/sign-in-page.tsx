@@ -2,7 +2,6 @@ import { useState, type FormEvent } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { Button } from "@/components/ui/button";
-import { Checkbox } from "@/components/ui/checkbox";
 import { DemoLogins } from "@/components/ui/demo-logins";
 import { TextField } from "@/components/ui/field";
 import { PasswordField } from "@/components/ui/password-field";
@@ -18,7 +17,6 @@ export function SignInPage() {
   const from = (location.state as { from?: string } | null)?.from ?? paths.pharmacy.home;
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [remember, setRemember] = useState(false);
   const [errors, setErrors] = useState<FieldErrors<"email" | "password">>({});
   const [formError, setFormError] = useState("");
 
@@ -28,7 +26,7 @@ export function SignInPage() {
     setErrors(next);
     setFormError("");
     if (hasErrors(next)) return;
-    const result = authService.signIn(email, password, remember);
+    const result = authService.signIn(email, password);
     if (!result.ok) {
       setFormError(result.error);
       return;
@@ -56,14 +54,9 @@ export function SignInPage() {
           error={errors.password}
           onChange={(event) => setPassword(event.target.value)}
         />
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <Checkbox checked={remember} onChange={setRemember}>
-            Keep me signed in on this device
-          </Checkbox>
-          <TextLink to={paths.auth.forgotPassword} className="text-md">
-            Forgot password?
-          </TextLink>
-        </div>
+        <TextLink to={paths.auth.forgotPassword} className="justify-self-start text-md">
+          Forgot password?
+        </TextLink>
         <FormError message={formError} />
         <Button type="submit" variant="primary" size="lg" className="mt-1 h-12 w-full text-lg">
           Continue

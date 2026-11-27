@@ -6,13 +6,15 @@ import type { DataTableColumn } from "@/components/data-table/types";
 import { useClientTable } from "@/components/data-table/use-client-table";
 import { buttonStyles } from "@/components/ui/button";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
+import { JoinRequestsPanel } from "@/features/admin/components/join-requests-panel";
+import { ProfileChangeQueue } from "@/features/admin/components/profile-change-panel";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
+import { adminAuth } from "@/features/admin/auth/admin-auth-service";
 import { NpiCheckBadge } from "@/features/admin/components/pharmacy-badges";
 import { summarizeCheck, type NpiCheckSummary } from "@/features/admin/lib/npi-registry";
 import { pharmacyReview } from "@/features/admin/services/pharmacy-review";
 import { authService } from "@/features/auth/auth-service";
 import type { PharmacyAccount, PharmacyStatus } from "@/features/auth/types";
-import { US_STATE_OPTIONS } from "@/lib/us-states";
 
 const TABS: Array<{ key: string; label: string; statuses: PharmacyStatus[] }> = [
   { key: "pending", label: "Pending", statuses: ["pending", "info_requested"] },
@@ -28,6 +30,7 @@ const CHECK_ORDER = { not_run: 0, not_found: 1, mismatch: 2, match: 3 } as const
 
 export function PharmaciesPage() {
   const navigate = useNavigate();
+  const account = adminAuth.useAccount();
   const [params] = useSearchParams();
   const tab = TABS.find((item) => item.key === params.get("status")) ?? TABS[0];
   const pharmacies = authService.useAllPharmacies();
@@ -87,8 +90,11 @@ export function PharmaciesPage() {
     filters: [
       {
         id: "state",
-        label: "State",
-        options: [{ value: "", label: "All states" }, ...US_STATE_OPTIONS.filter((state) => pharmacies.some((item) => item.pharmacy.state === state.value))],
+        label: "Region",
+        options: [
+          { value: "", label: "All regions" },
+          ...[...new Set(pharmacies.map((item) => item.pharmacy.state).filter(Boolean))].sort().map((value) => ({ value, label: value })),
+        ],
         matches: (row, value) => row.pharmacy.state === value,
       },
       {
@@ -106,7 +112,9 @@ export function PharmaciesPage() {
 
   return (
     <div className="grid gap-6">
-      <AdminPageHeader title="Pharmacies" subtitle="NPI verification queue and the active network." />
+      <AdminPageHeader title="Pharmacies" subtitle="NPI verification queue, join requests, and profile changes waiting for review." />
+      <JoinRequestsPanel />
+      {account ? <ProfileChangeQueue adminName={account.name} /> : null}
       <SegmentedTabs
         label="Pharmacy status"
         activeKey={tab.key}

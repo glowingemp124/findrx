@@ -37,7 +37,7 @@ accounts.update((list) => {
   const missing = SEED_PHARMACIES.filter((seeded) => !upgraded.some((account) => account.id === seeded.id));
   return [...upgraded, ...missing];
 });
-/** "Keep me signed in" uses localStorage; otherwise the session ends with the tab. */
+/** The pharmacy stays signed in on this device until they sign out. A leftover tab-only session still counts. */
 const rememberedSession = createPersistentStore<string | null>("findrx-session", null);
 const tabSession = createPersistentStore<string | null>("findrx-tab-session", null, { storage: sessionStorage });
 const lockout = createLoginLockout("findrx-lockouts");
@@ -51,9 +51,9 @@ function toSession({ password: _password, ...account }: PharmacyAccount): Sessio
   return account;
 }
 
-function openSession(accountId: string, remember: boolean) {
-  (remember ? rememberedSession : tabSession).set(accountId);
-  (remember ? tabSession : rememberedSession).set(null);
+function openSession(accountId: string) {
+  rememberedSession.set(accountId);
+  tabSession.set(null);
 }
 
 function updateAccount(id: string, recipe: (account: PharmacyAccount) => PharmacyAccount) {
@@ -86,7 +86,7 @@ export const authService = {
 
   useChallenge: challengeStore.use,
 
-  signIn(email: string, password: string, remember: boolean): AuthResult {
+  signIn(email: string, password: string): AuthResult {
     const key = normalizeEmail(email);
     const locked = lockout.check(key);
     if (locked) return { ok: false, error: locked };
@@ -97,7 +97,7 @@ export const authService = {
     }
 
     lockout.clear(key);
-    openSession(account.id, remember);
+    openSession(account.id);
     return { ok: true };
   },
 
@@ -164,7 +164,7 @@ export const authService = {
       };
       accounts.update((list) => [...list, account]);
       challengeStore.set(null);
-      openSession(account.id, false);
+      openSession(account.id);
       return { ok: true };
     }
 
@@ -180,7 +180,7 @@ export const authService = {
     }
     updateAccount(account.id, (current) => ({ ...current, password }));
     challengeStore.set(null);
-    openSession(account.id, false);
+    openSession(account.id);
     return { ok: true };
   },
 
@@ -206,10 +206,35 @@ export const authService = {
 
   /** FindRx staff: every pharmacy account, for review and management. */
   useAllPharmacies: accounts.use,
+  listAccounts: accounts.get,
 
   /** FindRx staff: approve, reject, ask for more information, suspend or reinstate. */
   setStatus(pharmacyId: string, change: StatusChange) {
     updateAccount(pharmacyId, (account) => ({ ...account, status: change.status, statusNote: change.note }));
+  },
+
+  /** Applies a reviewed profile change. Hours stay as the pharmacy last saved them. */
+  applyProfile(pharmacyId: string, fields: Omit<PharmacyProfile, "hours">) {
+    updateAccount(pharmacyId, (account) => ({
+      ...account,
+      pharmacy: { ...account.pharmacy, ...fields, hours: account.pharmacy.hours },
+    }));
+  },
+
+  /** Creates a sign-in after FindRx has visited and confirmed the pharmacy. */
+  createPharmacy(input: SignUpInput): AuthResult {
+    if (findByEmail(input.email)) return { ok: false, error: "An account with this email already exists." };
+    const account: PharmacyAccount = {
+      ...input,
+      email: normalizeEmail(input.email),
+      id: `pharmacy-${crypto.randomUUID().slice(0, 8)}`,
+      acceptingRequests: true,
+      createdAt: Date.now(),
+      status: "active",
+      statusNote: "Confirmed in person by FindRx.",
+    };
+    accounts.update((list) => [...list, account]);
+    return { ok: true };
   },
 
   changePassword(current: string, next: string): AuthResult {

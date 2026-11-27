@@ -1,4 +1,5 @@
 import type { SessionAccount } from "@/features/auth/types";
+import { milesBetween, pointForId } from "@/features/client/lib/pharmacy-coverage";
 import { formLabel } from "@/features/requests/lib/formatters";
 import { resolvePhase } from "@/features/requests/lib/request-phase";
 import type { BlindRequest, DistanceBand, Fulfilment, GenericPreference } from "@/features/requests/types";
@@ -27,13 +28,34 @@ const BANDS: DistanceBand[] = [
 
 const hash = (text: string) => [...text].reduce((sum, char) => (sum * 31 + char.charCodeAt(0)) >>> 0, 7);
 
+function bandForMiles(miles: number): DistanceBand {
+  const match = BANDS.find((band) => miles <= band.maxMiles);
+  if (match) return match;
+  const ceiling = Math.max(1, Math.ceil(miles));
+  return { minMiles: Math.floor(miles), maxMiles: ceiling };
+}
+
 /**
- * Mock distance between a pharmacy and a patient, as a band inside the patient's radius.
- * Deterministic so it doesn't change between renders. Real geocoding replaces this.
+ * Distance band for a pharmacy. Uses the map pin when the request has one.
  */
 export function distanceBandFor(request: BlindRequest, pharmacyId: string): DistanceBand {
-  const options = BANDS.filter((band) => band.maxMiles <= request.draft.radiusMiles);
-  return options[hash(request.id + pharmacyId) % options.length];
+  const { latitude, longitude, radiusMiles } = request.draft;
+  const point = latitude != null && longitude != null ? pointForId(pharmacyId) : null;
+  if (point && latitude != null && longitude != null) {
+    return bandForMiles(milesBetween(point, { lat: latitude, lng: longitude }));
+  }
+  const options = BANDS.filter((band) => band.maxMiles <= radiusMiles);
+  const fallback = options.length > 0 ? options : BANDS;
+  return fallback[hash(request.id + pharmacyId) % fallback.length];
+}
+
+function insideSearch(request: BlindRequest, pharmacyId: string) {
+  const { latitude, longitude, radiusMiles } = request.draft;
+  if (radiusMiles <= 0) return true;
+  if (latitude == null || longitude == null) return true;
+  const point = pointForId(pharmacyId);
+  if (!point) return false;
+  return milesBetween(point, { lat: latitude, lng: longitude }) <= radiusMiles;
 }
 
 /** "500 mg ER · Tablet · Qty 60" */
@@ -63,6 +85,7 @@ export function buildFeed(requests: BlindRequest[], account: SessionAccount, now
   return requests
     .filter((request) => resolvePhase(request, now) === "live")
     .filter((request) => !request.draft.needsCompounding || account.pharmacy.canCompound)
+    .filter((request) => insideSearch(request, account.id))
     .map((request) => toFeedItem(request, account.id))
     .sort((a, b) => b.postedAt - a.postedAt);
 }

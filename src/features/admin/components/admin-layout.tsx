@@ -6,6 +6,7 @@ import { DashboardShell } from "@/components/layout/dashboard-shell";
 import { adminAuth } from "@/features/admin/auth/admin-auth-service";
 import { allowedModules } from "@/features/admin/lib/permissions";
 import { authService } from "@/features/auth/auth-service";
+import { profileChanges } from "@/features/pharmacy/services/profile-changes";
 import { transactionStore } from "@/features/requests/services/transaction-store";
 
 /** Admin side: sidebar limited to the person's modules, account menu, and review badges. */
@@ -17,6 +18,7 @@ export function AdminLayout() {
   useEffect(() => transactionStore.seedHistory(Date.now()), []);
 
   const awaitingReview = useMemo(() => pharmacies.filter((item) => item.status === "pending").length, [pharmacies]);
+  const profilePending = profileChanges.use().filter((item) => item.status === "pending").length;
 
   if (!account) return null;
   const role = account.role === "owner" ? "Owner" : "Staff";
@@ -29,7 +31,7 @@ export function AdminLayout() {
         to: module.to,
         label: module.label,
         icon: module.icon,
-        badge: module.id === "pharmacies" ? awaitingReview : undefined,
+        badge: module.id === "pharmacies" ? awaitingReview + profilePending || undefined : undefined,
       }))}
       footer={
         <p className="text-sm text-side-muted">

@@ -1,5 +1,5 @@
 import { paths } from "@/app/paths";
-import { usDigits } from "@/features/requests/lib/formatters";
+import { pharmaciesNear } from "@/features/client/lib/pharmacy-coverage";
 import { isPurgeable, resolvePhase } from "@/features/requests/lib/request-phase";
 import { platformSettings, renderTemplate, type SmsTemplateId } from "@/features/platform/platform-settings";
 import { formatUsd } from "@/features/requests/lib/formatters";
@@ -17,12 +17,17 @@ import { createPersistentStore } from "@/lib/persistent-store";
 // v2: claims carry a pharmacy id and released claims are kept. Older mock data is dropped.
 const store = createPersistentStore<BlindRequest[]>("findrx-requests-v2", []);
 
-const createCode = () => String(Math.floor(100000 + Math.random() * 900000));
+const createCode = () => "123456";
 const createReference = () => `FRX-${Math.floor(1000 + Math.random() * 9000)}`;
 const OTP_TTL_MS = 10 * 60_000;
 
-/** Rough count of pharmacies notified for a radius, until real geo matching exists. */
-const notifiedFor = (radius: SearchRadius) => Math.round(4 + radius * 1.05);
+/** Pharmacies inside the patient's circle, or a rough count when the request has no pin. */
+const notifiedFor = (draft: Pick<RequestDraft, "radiusMiles" | "latitude" | "longitude" | "needsCompounding">) => {
+  if (draft.latitude != null && draft.longitude != null) {
+    return pharmaciesNear({ lat: draft.latitude, lng: draft.longitude }, draft.radiusMiles, draft.needsCompounding).length;
+  }
+  return Math.round(4 + draft.radiusMiles * 1.05);
+};
 
 /** Builds a text from the admin's template. */
 const text = (id: SmsTemplateId, values: Record<string, string> = {}) => renderTemplate(platformSettings.get().smsTemplates[id], values);
@@ -38,7 +43,7 @@ function newRequest(draft: RequestDraft): BlindRequest {
   return {
     id: crypto.randomUUID().replaceAll("-", "").slice(0, 16),
     reference: createReference(),
-    draft: { ...draft, phone: usDigits(draft.phone) },
+    draft: { ...draft, phone: draft.phone.replace(/\D/g, "") },
     createdAt: Date.now(),
     feeCents: platformSettings.get().feeCents,
     verification: null,
@@ -84,7 +89,7 @@ export const requestService = {
   begin(draft: RequestDraft): { request: BlindRequest; needsCode: boolean } {
     const request = newRequest(draft);
     const needsCode = platformSettings.get().requirePhoneCode;
-    const saved: BlindRequest = needsCode ? request : { ...request, postedAt: Date.now(), notifiedPharmacies: notifiedFor(draft.radiusMiles) };
+    const saved: BlindRequest = needsCode ? request : { ...request, postedAt: Date.now(), notifiedPharmacies: notifiedFor(draft) };
     store.update((requests) => [...requests, saved]);
     if (needsCode) issueCode(request.id);
     return { request: saved, needsCode };
@@ -107,7 +112,7 @@ export const requestService = {
       ...current,
       verification: null,
       postedAt: Date.now(),
-      notifiedPharmacies: notifiedFor(current.draft.radiusMiles),
+      notifiedPharmacies: notifiedFor(current.draft),
     }));
     return { ok: true };
   },
@@ -120,10 +125,24 @@ export const requestService = {
     if (request.claim) return { ok: false, reason: "taken" };
     if (resolvePhase(request, now) !== "live") return { ok: false, reason: "unavailable" };
     patchRequest(id, (current) => ({ ...current, claim: { ...claim, claimedAt: now } }));
-    textClient(request, text("pharmacy_found", { fee: formatUsd(requestFee(request)) }), {
-      label: "Pay and connect",
-      to: paths.client.pay(id),
-    });
+    if (requestFee(request) === 0) {
+      recordPayment(id, {
+        transactionId: createTransactionId(),
+        stripePaymentId: "waived",
+        method: { kind: "waived" },
+        receiptEmail: "",
+      });
+      const { pharmacy } = claim;
+      textClient(request, text("pharmacy_details", { pharmacy: pharmacy.name, address: pharmacy.address, phone: pharmacy.phone }), {
+        label: "View pharmacy",
+        to: paths.client.connected(id),
+      });
+    } else {
+      textClient(request, text("pharmacy_found", { fee: formatUsd(requestFee(request)) }), {
+        label: "Pay and connect",
+        to: paths.client.pay(id),
+      });
+    }
     return { ok: true, claimedAt: now };
   },
 
@@ -150,7 +169,7 @@ export const requestService = {
       ...request,
       draft: { ...request.draft, radiusMiles },
       postedAt: Date.now(),
-      notifiedPharmacies: notifiedFor(radiusMiles),
+      notifiedPharmacies: notifiedFor({ ...request.draft, radiusMiles }),
       noMatchNotified: false,
     }));
   },
@@ -169,7 +188,7 @@ export const requestService = {
       claim: null,
       releasedClaims: request.claim ? [...request.releasedClaims, request.claim] : request.releasedClaims,
       noMatchNotified: false,
-      notifiedPharmacies: notifiedFor(edits.radiusMiles ?? request.draft.radiusMiles),
+      notifiedPharmacies: notifiedFor({ ...request.draft, ...edits }),
     }));
   },
 
@@ -200,7 +219,7 @@ export const requestService = {
         ...newRequest(draft),
         createdAt: postedAt,
         postedAt,
-        notifiedPharmacies: notifiedFor(draft.radiusMiles),
+        notifiedPharmacies: notifiedFor(draft),
         simulated: true,
       };
       store.update((requests) => [...requests, request]);

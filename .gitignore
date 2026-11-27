@@ -39,3 +39,6 @@ coverage
 *.sw?
 
 CLAUDE.md
+
+# Scratch notes from calls. Not part of the app.
+temp/

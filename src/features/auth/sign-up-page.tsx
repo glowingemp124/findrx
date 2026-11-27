@@ -1,18 +1,17 @@
 import { useState, type FormEvent } from "react";
-import { Link, useNavigate } from "react-router-dom";
+import { Link } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
 import { TextField } from "@/components/ui/field";
-import { PasswordField } from "@/components/ui/password-field";
-import { Select } from "@/components/ui/select";
+import { PhoneField } from "@/features/client/components/phone-field";
+import { PharmacyLocationMap } from "@/features/auth/components/pharmacy-location-map";
 import { TextLink, textLinkClass } from "@/components/ui/text-link";
 import { AuthLayout, FormError } from "@/features/auth/auth-layout";
-import { authService } from "@/features/auth/auth-service";
+import { joinRequests } from "@/features/auth/join-requests";
 import type { PharmacyProfile } from "@/features/auth/types";
-import { hasErrors, validateAccount, validatePharmacy, type FieldErrors } from "@/features/auth/validation";
+import { hasErrors, validatePharmacy, type FieldErrors } from "@/features/auth/validation";
 import { DEFAULT_HOURS } from "@/lib/opening-hours";
-import { US_STATE_OPTIONS } from "@/lib/us-states";
 
 const emptyPharmacy: PharmacyProfile = {
   name: "",
@@ -25,19 +24,19 @@ const emptyPharmacy: PharmacyProfile = {
   canCompound: false,
   hours: DEFAULT_HOURS,
 };
-const emptyAccount = { contactName: "", contactTitle: "", email: "", password: "", confirm: "", agreed: false };
+const emptyAccount = { contactName: "", contactTitle: "", email: "", note: "", agreed: false };
 
-type Step = "pharmacy" | "account";
+type Step = "pharmacy" | "account" | "sent";
 
-/** Two steps: the pharmacy (what patients see after paying), then the person signing up. */
+/** Two steps: the pharmacy, then a request to FindRx. No account is created. */
 export function SignUpPage() {
-  const navigate = useNavigate();
   const [step, setStep] = useState<Step>("pharmacy");
   const [pharmacy, setPharmacy] = useState(emptyPharmacy);
   const [account, setAccount] = useState(emptyAccount);
   const [pharmacyErrors, setPharmacyErrors] = useState<FieldErrors<keyof PharmacyProfile>>({});
-  const [accountErrors, setAccountErrors] = useState<FieldErrors<keyof typeof emptyAccount>>({});
+  const [accountErrors, setAccountErrors] = useState<Partial<Record<keyof typeof emptyAccount, string>>>({});
   const [formError, setFormError] = useState("");
+  const [locationDetail, setLocationDetail] = useState("");
 
   const editPharmacy = (changes: Partial<PharmacyProfile>) => setPharmacy((current) => ({ ...current, ...changes }));
   const editAccount = (changes: Partial<typeof emptyAccount>) => setAccount((current) => ({ ...current, ...changes }));
@@ -51,22 +50,25 @@ export function SignUpPage() {
 
   const submitAccount = (event: FormEvent) => {
     event.preventDefault();
-    const errors = validateAccount(account);
+    const errors: Partial<Record<keyof typeof emptyAccount, string>> = {};
+    if (account.contactName.trim().length < 2) errors.contactName = "Enter your name.";
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(account.email.trim())) errors.email = "Enter a valid work email.";
+    if (!account.agreed) errors.agreed = "Agree to the terms to send the request.";
     setAccountErrors(errors);
     setFormError("");
-    if (hasErrors(errors)) return;
-    const result = authService.beginSignUp({
-      email: account.email,
-      password: account.password,
+    if (Object.values(errors).some(Boolean)) return;
+    const result = joinRequests.submit({
+      pharmacy: { ...pharmacy, name: pharmacy.name.trim(), street: pharmacy.street.trim(), city: pharmacy.city.trim() },
       contactName: account.contactName.trim(),
       contactTitle: account.contactTitle.trim(),
-      pharmacy: { ...pharmacy, name: pharmacy.name.trim(), street: pharmacy.street.trim(), city: pharmacy.city.trim() },
+      email: account.email.trim(),
+      note: account.note.trim(),
     });
     if (!result.ok) {
       setFormError(result.error);
       return;
     }
-    navigate(paths.auth.verifyOtp);
+    setStep("sent");
   };
 
   const signInLine = (
@@ -77,7 +79,7 @@ export function SignUpPage() {
 
   if (step === "pharmacy") {
     return (
-      <AuthLayout eyebrow="Step 1 of 2" title="Join FindRx" subtitle="Free for pharmacies. Start with where you are.">
+      <AuthLayout eyebrow="Step 1 of 2" title="Join FindRx" subtitle="Pharmacy and location.">
         <form noValidate onSubmit={submitPharmacy} className="grid gap-4">
           <TextField
             label="Pharmacy name"
@@ -91,60 +93,29 @@ export function SignUpPage() {
             label="NPI number"
             inputMode="numeric"
             placeholder="10 digits"
-            hint="FindRx checks it against the NPI registry before you go live."
             value={pharmacy.npi}
             error={pharmacyErrors.npi}
             onChange={(event) => editPharmacy({ npi: event.target.value.replace(/\D/g, "").slice(0, 10) })}
           />
-          <TextField
+          <PhoneField
+            id="pharmacy-phone"
             label="Pharmacy phone"
-            type="tel"
-            autoComplete="tel-national"
-            placeholder="(713) 555-0186"
-            hint="Patients call this number after they pay."
             value={pharmacy.phone}
             error={pharmacyErrors.phone}
-            onChange={(event) => editPharmacy({ phone: event.target.value })}
+            onChange={(phone) => editPharmacy({ phone })}
           />
-          <TextField
-            label="Street address"
-            autoComplete="address-line1"
-            placeholder="1420 Washington Ave"
-            value={pharmacy.street}
-            error={pharmacyErrors.street}
-            onChange={(event) => editPharmacy({ street: event.target.value })}
+          <PharmacyLocationMap
+            detail={locationDetail}
+            error={pharmacyErrors.street || pharmacyErrors.city || pharmacyErrors.state || pharmacyErrors.zip}
+            onPick={(location) => {
+              setLocationDetail(location.detail);
+              editPharmacy({ street: location.street, city: location.city, state: location.state, zip: location.zip });
+            }}
           />
-          <div className="grid gap-4 sm:grid-cols-[1fr_150px_110px]">
-            <TextField
-              label="City"
-              autoComplete="address-level2"
-              placeholder="Houston"
-              value={pharmacy.city}
-              error={pharmacyErrors.city}
-              onChange={(event) => editPharmacy({ city: event.target.value })}
-            />
-            <Select
-              label="State"
-              value={pharmacy.state || null}
-              options={US_STATE_OPTIONS}
-              error={pharmacyErrors.state}
-              onChange={(state) => editPharmacy({ state })}
-            />
-            <TextField
-              label="ZIP"
-              inputMode="numeric"
-              autoComplete="postal-code"
-              placeholder="77007"
-              value={pharmacy.zip}
-              error={pharmacyErrors.zip}
-              onChange={(event) => editPharmacy({ zip: event.target.value.replace(/\D/g, "").slice(0, 5) })}
-            />
-          </div>
           <Checkbox
             boxed
             checked={pharmacy.canCompound}
             onChange={(canCompound) => editPharmacy({ canCompound })}
-            description="You'll also see requests that need compounding."
           >
             <span className="font-semibold text-ink">We compound medications</span>
           </Checkbox>
@@ -157,8 +128,19 @@ export function SignUpPage() {
     );
   }
 
+  if (step === "sent") {
+    return (
+      <AuthLayout title="Request received" subtitle={pharmacy.name.trim()}>
+        <div className="grid gap-4">
+          <p className="text-md text-ink-2">FindRx will contact {account.email.trim()} before anyone can log in.</p>
+          {signInLine}
+        </div>
+      </AuthLayout>
+    );
+  }
+
   return (
-    <AuthLayout eyebrow="Step 2 of 2" title="Your account" subtitle={`You'll sign in to ${pharmacy.name.trim()} with this.`}>
+    <AuthLayout eyebrow="Step 2 of 2" title="Request to join" subtitle="Who should FindRx contact?">
       <form noValidate onSubmit={submitAccount} className="grid gap-4">
         <div className="grid gap-4 sm:grid-cols-[1fr_130px]">
           <TextField
@@ -170,7 +152,7 @@ export function SignUpPage() {
             onChange={(event) => editAccount({ contactName: event.target.value })}
           />
           <TextField
-            label="Title (optional)"
+            label="Title"
             placeholder="PharmD"
             value={account.contactTitle}
             onChange={(event) => editAccount({ contactTitle: event.target.value })}
@@ -185,29 +167,12 @@ export function SignUpPage() {
           error={accountErrors.email}
           onChange={(event) => editAccount({ email: event.target.value })}
         />
-        <PasswordField
-          label="Password"
-          autoComplete="new-password"
-          placeholder="At least 8 characters"
-          hint="Use a letter and a number."
-          value={account.password}
-          error={accountErrors.password}
-          onChange={(event) => editAccount({ password: event.target.value })}
-        />
-        <PasswordField
-          label="Confirm password"
-          autoComplete="new-password"
-          placeholder="Type it again"
-          value={account.confirm}
-          error={accountErrors.confirm}
-          onChange={(event) => editAccount({ confirm: event.target.value })}
-        />
+        <TextField label="Note" value={account.note} onChange={(event) => editAccount({ note: event.target.value })} />
         <Checkbox checked={account.agreed} onChange={(agreed) => editAccount({ agreed })} error={accountErrors.agreed}>
           I agree to the{" "}
           <Link to={paths.client.terms} target="_blank" className={textLinkClass}>
-            Terms of Service
-          </Link>{" "}
-          and will only claim requests we can fill.
+            Terms & Conditions
+          </Link>
         </Checkbox>
         <FormError message={formError} />
         <div className="mt-1 grid gap-2.5 sm:grid-cols-[auto_1fr]">
@@ -215,7 +180,7 @@ export function SignUpPage() {
             Back
           </Button>
           <Button type="submit" variant="primary" size="lg" className="h-12 text-lg">
-            Create account
+            Send request
           </Button>
         </div>
         {signInLine}

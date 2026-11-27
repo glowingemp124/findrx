@@ -12,6 +12,7 @@ import {
   RequestPageFrame,
   RequestStepper,
 } from "@/features/client/components/request-ui";
+import { ReportProblem } from "@/features/client/components/report-problem";
 import { summarizeMedication, usDigits } from "@/features/requests/lib/formatters";
 import { useDocumentTitle } from "@/lib/use-document-title";
 
@@ -41,7 +42,10 @@ export function ConnectedPage() {
         const directions = `https://www.google.com/maps/dir/?api=1&destination=${encodeURIComponent(pharmacy.address)}`;
         return (
           <RequestPageFrame>
-            <RequestStepper steps={["Request posted", "Pharmacy found", "Paid", "Connect"]} current={4} />
+            <RequestStepper
+              steps={request.feeCents === 0 ? ["Request posted", "Pharmacy found", "Confirmed", "Connect"] : ["Request posted", "Pharmacy found", "Paid", "Connect"]}
+              current={4}
+            />
             <RequestCard>
               <span className="grid size-14 place-items-center rounded-full bg-good-soft text-good">
                 <Icon name="check" className="size-7" />
@@ -73,7 +77,7 @@ export function ConnectedPage() {
                 rows={[
                   ["Transaction ID", payment.transactionId],
                   ["Medication", summarizeMedication(request)],
-                  ["Receipt", payment.receiptEmail ? `Emailed to ${payment.receiptEmail}` : "Sent by your wallet provider"],
+                  ["Receipt", payment.amountCents === 0 ? "No FindRx fee" : payment.receiptEmail ? `Emailed to ${payment.receiptEmail}` : "Sent by your wallet provider"],
                 ]}
               />
 
@@ -85,9 +89,10 @@ export function ConnectedPage() {
               </Notice>
 
               <p className="text-md text-muted">
-                If the pharmacy didn't actually have it, contact FindRx support with your Transaction ID and we'll review a
-                refund. Your request details are deleted 24 hours from now.
+                If the pharmacy didn't actually have it, report it below and FindRx will review a refund.
               </p>
+
+              <ReportProblem request={request} />
 
               <div>
                 <Button size="lg" onClick={() => navigate(`${paths.client.home}#request`)}>

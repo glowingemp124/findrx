@@ -46,5 +46,7 @@ export function formatPaymentMethod(method: PaymentMethodSummary) {
       return "Google Pay";
     case "card":
       return `${method.brand} •••• ${method.last4}`;
+    case "waived":
+      return "No fee";
   }
 }

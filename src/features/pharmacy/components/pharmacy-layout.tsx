@@ -21,6 +21,7 @@ function PharmacyShell() {
         { to: paths.pharmacy.requests, label: "Live requests", icon: "inbox", badge: feed.length },
         { to: paths.pharmacy.claims, label: "My claims", icon: "clipboardCheck", badge: stats.needsAttention },
         { to: paths.pharmacy.history, label: "History", icon: "history" },
+        { to: paths.pharmacy.medications, label: "Import medications", icon: "upload" },
         { to: paths.pharmacy.settings, label: "Settings", icon: "settings" },
       ]}
       footer={

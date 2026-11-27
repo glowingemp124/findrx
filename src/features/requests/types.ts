@@ -20,6 +20,9 @@ export type RequestDraft = {
   needsCompounding: boolean;
   area: string;
   radiusMiles: SearchRadius;
+  /** Pin from the search map. Null on requests posted before the map, and on simulated ones. */
+  latitude: number | null;
+  longitude: number | null;
   fulfilment: Fulfilment;
   fullName: string;
   phone: string;
@@ -39,7 +42,10 @@ export type PharmacyClaim = {
   distanceBand: DistanceBand;
 };
 
-export type PaymentMethodSummary = { kind: "card"; brand: string; last4: string } | { kind: "apple_pay" | "google_pay" };
+export type PaymentMethodSummary =
+  | { kind: "card"; brand: string; last4: string }
+  | { kind: "apple_pay" | "google_pay" }
+  | { kind: "waived" };
 
 export type Payment = {
   transactionId: string;

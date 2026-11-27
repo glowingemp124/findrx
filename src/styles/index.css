@@ -540,6 +540,11 @@ input.password-mask::placeholder {
   }
 }
 
+/* Google's address suggestions render on document.body, above the map dialog. */
+.pac-container {
+  z-index: 10000;
+}
+
 @utility toast-in {
   animation: toast-in 0.32s var(--ease-out) both;
 }

@@ -1,5 +1,4 @@
 import type { OpeningHours } from "@/lib/opening-hours";
-import type { UsStateCode } from "@/lib/us-states";
 
 export type PharmacyProfile = {
   name: string;
@@ -8,7 +7,9 @@ export type PharmacyProfile = {
   phone: string;
   street: string;
   city: string;
-  state: UsStateCode | "";
+  /** Region, province, or state. Empty where the country has none. */
+  state: string;
+  /** Postal code in whatever form that country uses. */
   zip: string;
   /** Compounding requests are only shown to pharmacies that compound. */
   canCompound: boolean;

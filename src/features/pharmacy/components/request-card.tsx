@@ -9,9 +9,10 @@ type RequestCardProps = {
   disabled: boolean;
   onClaim: (item: FeedItem) => void;
   delay?: number;
+  onList?: boolean;
 };
 
-export function RequestCard({ item, now, disabled, onClaim, delay = 0 }: RequestCardProps) {
+export function RequestCard({ item, now, disabled, onClaim, delay = 0, onList = false }: RequestCardProps) {
   return (
     <article
       className="card rise-in flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-5"
@@ -24,6 +25,7 @@ export function RequestCard({ item, now, disabled, onClaim, delay = 0 }: Request
           <Chip>Generic: {genericLabel(item.genericPreference)}</Chip>
           {item.manufacturer ? <Chip>Maker: {item.manufacturer}</Chip> : null}
           {item.needsCompounding ? <Chip tone="warn">Compounding needed</Chip> : null}
+          {onList ? <Chip tone="accent">On your list</Chip> : null}
           <Chip tone={item.fulfilment === "delivery" ? "accent" : "neutral"}>
             {item.fulfilment === "delivery" ? "Delivery requested" : "Pickup"}
           </Chip>
@@ -34,7 +36,7 @@ export function RequestCard({ item, now, disabled, onClaim, delay = 0 }: Request
           {formatDistanceBand(item.distanceBand, true)} · {formatTimeAgo(item.postedAt, now)}
         </p>
         <Button variant="primary" size="lg" className="w-full sm:w-auto" disabled={disabled} onClick={() => onClaim(item)}>
-          {item.needsCompounding ? "Claim · we can compound" : "Claim · in stock"}
+          {onList ? "Claim · on your list" : "Claim"}
         </Button>
       </div>
     </article>

@@ -7,8 +7,8 @@ import { PageHeader } from "@/features/pharmacy/components/page-header";
 import { usePharmacyWorkspace } from "@/features/pharmacy/hooks/pharmacy-workspace";
 
 const TABS = [
-  { id: "awaiting", label: "Awaiting payment", empty: "Nothing waiting. Claims show here until the patient pays." },
-  { id: "paid", label: "Paid · contact customer", empty: "No paid claims yet today. Patient details appear here once they pay." },
+  { id: "awaiting", label: "Waiting to connect", empty: "Nothing waiting. Claims show here until the patient connects." },
+  { id: "paid", label: "Connected · contact customer", empty: "No connections yet today. Patient details appear here once you are connected." },
   { id: "expired", label: "Expired", empty: "No expired claims today." },
 ] as const;
 
@@ -31,7 +31,7 @@ export function MyClaimsPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="My claims" subtitle="Requests you claimed today. Patient details appear once they pay." />
+      <PageHeader title="My claims" subtitle="Requests you claimed. Patient details appear once you are connected." />
 
       <SegmentedTabs
         label="Claim status"

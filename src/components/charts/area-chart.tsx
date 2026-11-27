@@ -58,7 +58,7 @@ export function AreaChart({ data, height = 220, valueLabel, format = (v) => v.to
           <path d={line} fill="none" stroke="var(--accent)" strokeWidth={2} strokeLinejoin="round" strokeLinecap="round" />
           {data.map((point, index) =>
             index % tickEvery === 0 ? (
-              <text key={point.label} x={x(index)} y={height - 8} textAnchor="middle" className="fill-muted text-[11px]">
+              <text key={`${point.label}-${index}`} x={x(index)} y={height - 8} textAnchor="middle" className="fill-muted text-[11px]">
                 {point.label}
               </text>
             ) : null,

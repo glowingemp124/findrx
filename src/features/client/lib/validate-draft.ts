@@ -4,8 +4,15 @@ import type { RequestDraft } from "@/features/requests/types";
 export type DraftField = keyof RequestDraft;
 export type DraftErrors = Partial<Record<DraftField, string>>;
 
-const ZIP = /^\d{5}(-\d{4})?$/;
-const CITY = /^[a-z][a-z .'-]*(,\s*[a-z]{2,})?$/i;
+/** A city, postal code, or place name from any country. */
+export function isPlausibleArea(value: string) {
+  return value.trim().length >= 2;
+}
+
+/** Letters from any language. An empty name is allowed. */
+export function isPersonName(value: string) {
+  return /^[\p{L}][\p{L}' .-]*$/u.test(value);
+}
 
 /** US numbers only: 10 digits, and area and exchange codes can't start with 0 or 1. */
 export function isUsMobile(value: string) {
@@ -22,16 +29,16 @@ export function validateDraft(draft: RequestDraft): DraftErrors {
   else if (!Number.isInteger(quantity) || quantity < 1 || quantity > 9999) errors.quantity = "Enter a whole number.";
 
   const area = draft.area.trim();
-  if (!area) errors.area = "Enter a ZIP code or city.";
-  else if (!ZIP.test(area) && !(area.length >= 2 && CITY.test(area))) errors.area = "Enter a 5-digit ZIP or a city name.";
+  if (!area) errors.area = "Enter a city or postal code.";
+  else if (!isPlausibleArea(area)) errors.area = "Enter a city or postal code.";
 
   const fullName = draft.fullName.trim().replace(/\s+/g, " ");
-  if (!fullName) errors.fullName = "Enter your full name.";
-  else if (!/^[a-z][a-z' .-]*$/i.test(fullName)) errors.fullName = "Use letters only.";
-  else if (!fullName.includes(" ")) errors.fullName = "Enter your first and last name.";
+  if (fullName && !isPersonName(fullName)) errors.fullName = "Use letters only.";
 
   if (!draft.phone.trim()) errors.phone = "Enter your mobile number.";
-  else if (!isUsMobile(draft.phone)) errors.phone = "Enter a 10-digit US mobile number.";
+  else if (draft.phone.replace(/\D/g, "").length < 8 || draft.phone.replace(/\D/g, "").length > 15) {
+    errors.phone = "Enter a mobile number with its country code.";
+  }
 
   return errors;
 }

@@ -1,4 +1,4 @@
-import { useMemo, type ReactNode } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { Icon } from "@/components/icons";
@@ -9,8 +9,10 @@ import { DonutChart } from "@/components/charts/donut-chart";
 import { RankedBars } from "@/components/charts/ranked-bars";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Textarea } from "@/components/ui/textarea";
 import { Panel } from "@/components/ui/panel";
 import { SegmentedTabs } from "@/components/ui/segmented-tabs";
+import { adminAuth } from "@/features/admin/auth/admin-auth-service";
 import { AdminPageHeader } from "@/features/admin/components/admin-page-header";
 import { KpiCard } from "@/components/ui/kpi-card";
 import {
@@ -21,7 +23,6 @@ import {
   RANGES,
   rangeStart,
   ratio,
-  toCsv,
   topMedications,
   topPharmacies,
   totalsOf,
@@ -31,9 +32,11 @@ import {
 import { authService } from "@/features/auth/auth-service";
 import { platformSettings } from "@/features/platform/platform-settings";
 import { formatUsd } from "@/features/requests/lib/formatters";
+import { disputeStore, type Dispute } from "@/features/requests/services/dispute-store";
+import { resolvePhase } from "@/features/requests/lib/request-phase";
+import type { BlindRequest } from "@/features/requests/types";
 import { requestService } from "@/features/requests/services/request-service";
 import { transactionStore } from "@/features/requests/services/transaction-store";
-import { downloadText } from "@/lib/download";
 import { useNow } from "@/lib/use-now";
 
 const number = (value: number) => Math.round(value).toLocaleString("en-US");
@@ -78,7 +81,9 @@ export function DashboardPage() {
   const requests = requestService.use();
   const transactions = transactionStore.use();
   const pharmacies = authService.useAllPharmacies();
-  const { feeCents, purgeTime, retentionHours } = platformSettings.use();
+  const disputes = disputeStore.use();
+  const account = adminAuth.useAccount();
+  const { feeCents } = platformSettings.use();
 
   const data = useMemo(() => {
     const series = buildSeries(range, now, requests);
@@ -109,25 +114,9 @@ export function DashboardPage() {
   const dense = series.length > 12;
   const tickEvery = range === "30d" ? 5 : range === "today" ? 3 : 1;
 
-  const exportCsv = () =>
-    downloadText(`findrx-dashboard-${range}.csv`, toCsv(series, feeCents));
-
   return (
     <div className="grid gap-6">
-      <AdminPageHeader
-        title="Dashboard"
-        subtitle="Platform health from anonymized records. Counts survive the daily purge."
-        action={
-          <div className="flex flex-wrap items-center gap-2">
-            <Button
-              icon={<Icon name="download" className="size-4" />}
-              onClick={exportCsv}
-            >
-              Export CSV
-            </Button>
-          </div>
-        }
-      />
+      <AdminPageHeader title="Dashboard" subtitle="Platform health." />
 
       <SegmentedTabs
         label="Date range"
@@ -260,20 +249,14 @@ export function DashboardPage() {
             <AttentionItem to={paths.admin.transactions}>
               <strong>{data.refundedInRange} refunds</strong> in this period
             </AttentionItem>
-            <AttentionItem
-              badge={<Badge tone="good">Last run OK · {purgeTime}</Badge>}
-            >
-              Daily purge job
-            </AttentionItem>
-            <AttentionItem badge={<Badge tone="good">Healthy</Badge>}>
-              SMS and payments
+            <AttentionItem badge={<Badge tone="good">Kept</Badge>}>
+              Request records are kept
             </AttentionItem>
           </div>
-          <p className="mt-3 text-sm text-muted">
-            Request details are deleted {retentionHours} hours after they close.
-          </p>
         </Panel>
       </div>
+
+      <OutreachAndDisputes requests={requests} disputes={disputes} adminName={account?.name ?? "FindRx"} now={now} />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel
@@ -423,6 +406,93 @@ export function DashboardPage() {
           </div>
         </Panel>
       </div>
+    </div>
+  );
+}
+
+function OutreachAndDisputes({
+  requests,
+  disputes,
+  adminName,
+  now,
+}: {
+  requests: BlindRequest[];
+  disputes: Dispute[];
+  adminName: string;
+  now: number;
+}) {
+  const [notes, setNotes] = useState<Record<string, string>>({});
+  const areas = new Map<string, number>();
+  for (const request of requests) {
+    if (resolvePhase(request, now) !== "no_match") continue;
+    const area = request.draft.area.trim() || "Unknown area";
+    areas.set(area, (areas.get(area) ?? 0) + 1);
+  }
+  const ranked = [...areas.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+  const open = disputes.filter((item) => item.status === "open");
+  const claimed = requests.filter((item) => item.claim).length;
+  const denied = disputes.filter((item) => item.status === "denied").length;
+  const rate = (part: number, whole: number) => (whole > 0 ? percent(part / whole) : "–");
+
+  return (
+    <div className="grid gap-4 lg:grid-cols-2">
+      <Panel title="Searches with no pharmacy" subtitle="Areas where a search ended with nobody to claim it.">
+        {ranked.length === 0 ? (
+          <p className="text-md text-muted">No unmatched searches in the current records.</p>
+        ) : (
+          <RankedBars items={ranked.map(([label, value]) => ({ label, value }))} />
+        )}
+      </Panel>
+      <Panel title="Unfulfilled claims" subtitle="Accepted, then the patient says the medication wasn't furnished.">
+        <dl className="mb-4 grid grid-cols-3 gap-2 text-center">
+          <div className="rounded-[14px] bg-side-well p-3">
+            <dt className="text-sm text-muted">Acceptance</dt>
+            <dd className="text-xl font-bold tabular-nums">{rate(claimed, requests.length)}</dd>
+          </div>
+          <div className="rounded-[14px] bg-side-well p-3">
+            <dt className="text-sm text-muted">Unfulfilled</dt>
+            <dd className="text-xl font-bold tabular-nums">{rate(disputes.length, claimed)}</dd>
+          </div>
+          <div className="rounded-[14px] bg-side-well p-3">
+            <dt className="text-sm text-muted">Denied</dt>
+            <dd className="text-xl font-bold tabular-nums">{rate(denied, disputes.length)}</dd>
+          </div>
+        </dl>
+        {open.length === 0 ? (
+          <p className="text-md text-muted">No open reports.</p>
+        ) : (
+          <div className="grid gap-4">
+            {open.map((dispute) => (
+              <article key={dispute.id} className="grid gap-2 rounded-[14px] p-3 ring-1 ring-line">
+                <p className="font-semibold">
+                  {dispute.pharmacyName} · {dispute.medication}
+                </p>
+                <p className="text-md text-ink-2">{dispute.patientNote}</p>
+                {dispute.pharmacyNote ? <p className="text-sm text-muted">Pharmacy: {dispute.pharmacyNote}</p> : <p className="text-sm text-muted">No pharmacy reply yet.</p>}
+                <Textarea
+                  label="Decision note"
+                  rows={2}
+                  value={notes[dispute.id] ?? ""}
+                  onChange={(event) => setNotes((current) => ({ ...current, [dispute.id]: event.target.value }))}
+                />
+                <div className="flex gap-2">
+                  <Button
+                    variant="primary"
+                    onClick={() => {
+                      const transaction = transactionStore.all().find((item) => item.requestId === dispute.requestId && item.status === "paid");
+                      if (transaction) transactionStore.refund(transaction.id, "pharmacy_out_of_stock", notes[dispute.id] ?? "", adminName);
+                      disputeStore.decide(dispute.id, "refunded", notes[dispute.id] ?? "", adminName);
+                    }}
+                  >
+                    Refund
+                  </Button>
+                  <Button onClick={() => disputeStore.decide(dispute.id, "denied", notes[dispute.id] ?? "", adminName)}>Deny</Button>
+                </div>
+              </article>
+            ))}
+          </div>
+        )}
+      </Panel>
     </div>
   );
 }

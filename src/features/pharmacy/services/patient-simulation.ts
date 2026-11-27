@@ -35,6 +35,8 @@ function draftFrom(template: Template): RequestDraft {
     needsCompounding: false,
     area: "77007",
     radiusMiles: pick([5, 10, 10, 25] as const),
+    latitude: null,
+    longitude: null,
     fulfilment: "pickup",
     fullName: pick(PATIENTS),
     phone: `713555${String(Math.floor(100 + Math.random() * 900)).padStart(4, "0")}`,

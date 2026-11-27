@@ -9,7 +9,7 @@ import { applyTheme, readTheme } from "@/lib/theme";
 
 const links = [
   { label: "How it works", to: `${paths.client.home}#how-it-works` },
-  { label: "For Pharmacies", to: paths.client.forPharmacies },
+  { label: "My requests", to: paths.client.myRequests },
   { label: "Pharmacy sign in", to: paths.auth.signIn },
 ];
 
@@ -66,11 +66,17 @@ export function ClientHeader() {
         aria-label="Mobile"
         className={cn("grid gap-1 border-t border-line px-4 pt-2 pb-4 md:hidden", !open && "hidden")}
       >
-        {links.map((link) => (
-          <a key={link.label} href={link.to} className={linkClass} onClick={() => setOpen(false)}>
-            {link.label}
-          </a>
-        ))}
+        {links.map((link) =>
+          link.to.includes("#") ? (
+            <a key={link.label} href={link.to} className={linkClass} onClick={() => setOpen(false)}>
+              {link.label}
+            </a>
+          ) : (
+            <NavLink key={link.label} to={link.to} className={linkClass} onClick={() => setOpen(false)}>
+              {link.label}
+            </NavLink>
+          ),
+        )}
         <Link
           to={`${paths.client.home}#request`}
           onClick={() => setOpen(false)}

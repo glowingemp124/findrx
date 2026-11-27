@@ -6,7 +6,6 @@ import { Modal } from "@/components/ui/modal";
 import { Notice } from "@/components/ui/notice";
 import { Select } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
-import { platformSettings } from "@/features/platform/platform-settings";
 import { formatDistanceBand, formatUsd, formatUsPhone, usDigits } from "@/features/requests/lib/formatters";
 import { formatPaymentMethod } from "@/features/requests/services/payment-gateway";
 import { REFUND_REASONS, transactionStore, type RefundReason, type Transaction } from "@/features/requests/services/transaction-store";
@@ -50,7 +49,6 @@ export function TransactionModal({ transaction, request, canRefund, adminName, o
   const [refunding, setRefunding] = useState(false);
   const [reason, setReason] = useState<RefundReason>("pharmacy_out_of_stock");
   const [note, setNote] = useState("");
-  const retentionMs = platformSettings.use().retentionHours * 60 * 60_000;
 
   const close = () => {
     setRefunding(false);
@@ -60,7 +58,6 @@ export function TransactionModal({ transaction, request, canRefund, adminName, o
 
   if (!transaction) return <Modal open={false} title="" onClose={close} />;
   const t = transaction;
-  const visibleUntil = t.paidAt + retentionMs;
 
   const refund = () => {
     transactionStore.refund(t.id, reason, note, adminName);
@@ -100,10 +97,10 @@ export function TransactionModal({ transaction, request, canRefund, adminName, o
                     <CopyButton value={formatUsPhone(request.draft.phone)} label="patient phone" className="-my-1 shrink-0" />
                   </span>
                 </Row>
-                <Row label="Visible until">{timeFormat.format(visibleUntil)}</Row>
+                <Row label="Record">Kept</Row>
               </>
             ) : (
-              <Row label="Details">Deleted in the daily purge</Row>
+              <Row label="Details">Not on this transaction</Row>
             )}
             <Row label="Request">{t.reference}</Row>
           </Section>

@@ -5,7 +5,7 @@ import type { AdminSession, Permission } from "@/features/admin/types";
 export const can = (account: Pick<AdminSession, "role" | "permissions">, permission: Permission) =>
   account.role === "owner" || account.permissions.includes(permission);
 
-export type AdminModule = "dashboard" | "pharmacies" | "transactions" | "staff" | "settings";
+export type AdminModule = "dashboard" | "pharmacies" | "transactions" | "staff" | "legal" | "settings";
 
 type ModuleDef = { id: AdminModule; label: string; icon: IconName; to: string; allowed: (account: AdminSession) => boolean };
 
@@ -27,6 +27,7 @@ export const ADMIN_MODULES: ModuleDef[] = [
     allowed: (a) => can(a, "support") || can(a, "refunds"),
   },
   { id: "staff", label: "Staff", icon: "shield", to: paths.admin.staff, allowed: (a) => a.role === "owner" },
+  { id: "legal", label: "Privacy & terms", icon: "shieldCheck", to: paths.admin.legal, allowed: (a) => can(a, "settings") },
   { id: "settings", label: "Settings", icon: "settings", to: paths.admin.settings, allowed: (a) => can(a, "settings") },
 ];
 

@@ -3,11 +3,11 @@ import { requestService, type ClaimResult } from "@/features/requests/services/r
 import { distanceBandFor, medicationDetails } from "@/features/pharmacy/lib/feed";
 import { claimLedger } from "@/features/pharmacy/services/claim-ledger";
 
-export const pharmacyAddress = ({ pharmacy }: SessionAccount) =>
+export const pharmacyAddress = ({ pharmacy }: Pick<SessionAccount, "pharmacy">) =>
   `${pharmacy.street}, ${pharmacy.city}, ${pharmacy.state} ${pharmacy.zip}`;
 
 /** Claims a request for the signed-in pharmacy and records it in the ledger. */
-export function claimRequest(account: SessionAccount, requestId: string): ClaimResult {
+export function claimRequest(account: Pick<SessionAccount, "id" | "status" | "pharmacy">, requestId: string): ClaimResult {
   const request = requestService.find(requestId);
   if (!request || account.status !== "active") return { ok: false, reason: "unavailable" };
 

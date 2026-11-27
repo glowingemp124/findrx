@@ -9,7 +9,7 @@ const BENEFITS = [
   "Free to join. No subscription.",
   "See anonymous requests in real time.",
   "Claim only what's on your shelf, first come, first served.",
-  "Get the patient's name and number once they pay FindRx's fee.",
+  "Get the patient's name and number once you connect.",
 ];
 
 function BrandMark({ inverted = false }: { inverted?: boolean }) {

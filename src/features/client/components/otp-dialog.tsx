@@ -76,7 +76,7 @@ export function OtpDialog({ requestId, phone, onClose, onVerified }: OtpDialogPr
           <button type="button" onClick={resend} className="cursor-pointer font-semibold text-accent-text underline underline-offset-2">
             Send a new code
           </button>
-          <span className="block pt-1">Texts are simulated for now: open the notifications (bell, bottom right) to see the code.</span>
+          <span className="block pt-1">Texts are simulated for now. The code is 123456, or open the notifications (bell, bottom right).</span>
         </p>
       </form>
     </Modal>

@@ -45,6 +45,24 @@ export function formatUsPhone(value: string) {
   return `(${digits.slice(0, 3)}) ${digits.slice(3, 6)}-${digits.slice(6)}`;
 }
 
+/** US numbers as (713) 555-0199. Anything else keeps its country code. */
+export function formatPhone(value: string) {
+  const digits = value.replace(/\D/g, "");
+  if (digits.length === 10) return formatUsPhone(digits);
+  if (digits.length === 11 && digits.startsWith("1")) return `+1 ${formatUsPhone(digits.slice(1))}`;
+  return digits ? `+${digits}` : value;
+}
+
+/** Same handset, whether or not the stored value includes a leading country code. */
+export function samePhone(a: string, b: string) {
+  const left = a.replace(/\D/g, "");
+  const right = b.replace(/\D/g, "");
+  if (!left || !right) return false;
+  if (left === right) return true;
+  const national = (digits: string) => (digits.length === 11 && digits.startsWith("1") ? digits.slice(1) : digits);
+  return national(left) === national(right);
+}
+
 /** 754000 ms -> "12:34". Rolls to hours past 60 minutes: "1:00:00". */
 export function formatCountdown(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));

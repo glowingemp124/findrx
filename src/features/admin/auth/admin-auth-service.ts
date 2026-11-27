@@ -84,7 +84,7 @@ const LEGACY_SEED_EMAILS: Record<string, string> = {
 type MfaChallenge = { accountId: string; code: string; expiresAt: number };
 
 const accounts = createPersistentStore<AdminAccount[]>("findrx-admin-accounts", SEED_ADMINS);
-const session = createPersistentStore<string | null>("findrx-admin-session", null, { storage: sessionStorage });
+const session = createPersistentStore<string | null>("findrx-admin-session", null);
 const challenge = createPersistentStore<MfaChallenge | null>("findrx-admin-mfa", null, { storage: sessionStorage });
 const lockout = createLoginLockout("findrx-admin-lockouts");
 

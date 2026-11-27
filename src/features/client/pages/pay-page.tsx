@@ -27,10 +27,10 @@ export function PayPage() {
           <RequestPageFrame>
             <RequestStepper steps={["Request posted", "Pharmacy found", "Pay", "Connect"]} current={2} />
             <RequestCard>
-              <Badge tone="good">Pharmacy found · {request.reference}</Badge>
-              <RequestHeading title={`A pharmacy ${formatDistanceBand(claim.distanceBand)} away has your medication`}>
-                Pay the FindRx fee to get its name, address and phone. They'll get your name and number at the same
-                moment.
+              <Badge tone="good">Accepted by a pharmacy · {request.reference}</Badge>
+              <RequestHeading title="Accepted by a pharmacy">
+                A pharmacy {formatDistanceBand(claim.distanceBand)} away accepted your request. Pay the FindRx fee to get
+                its name, address and phone. They'll get your name and number at the same moment.
               </RequestHeading>
               <Countdown
                 tone="accent"

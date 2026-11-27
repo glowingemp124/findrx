@@ -12,8 +12,8 @@ import type { ClaimOutcome, LedgerEntry } from "@/features/pharmacy/services/cla
 const DAY = 24 * 60 * 60_000;
 
 const OUTCOME_BADGE: Record<ClaimOutcome, ReactNode> = {
-  awaiting_payment: <Badge tone="warn">Awaiting payment</Badge>,
-  paid: <Badge tone="good">Paid</Badge>,
+  awaiting_payment: <Badge tone="warn">Waiting to connect</Badge>,
+  paid: <Badge tone="good">Connected</Badge>,
   expired: <Badge tone="muted">Payment expired</Badge>,
 };
 
@@ -49,7 +49,7 @@ const todayColumns: DataTableColumn<LedgerEntry>[] = [
 const dayColumns: DataTableColumn<DayRow>[] = [
   { id: "day", header: "Day", sortValue: (row) => row.dayStart, cell: (row) => row.label },
   { id: "claimed", header: "Claimed", align: "right", sortValue: (row) => row.claimed, cell: (row) => <span className="tabular-nums">{row.claimed}</span> },
-  { id: "paid", header: "Paid", align: "right", sortValue: (row) => row.paid, cell: (row) => <span className="tabular-nums">{row.paid}</span> },
+  { id: "paid", header: "Connected", align: "right", sortValue: (row) => row.paid, cell: (row) => <span className="tabular-nums">{row.paid}</span> },
   { id: "expired", header: "Payment expired", align: "right", sortValue: (row) => row.expired, cell: (row) => <span className="tabular-nums">{row.expired}</span> },
 ];
 
@@ -72,8 +72,8 @@ export function HistoryPage() {
         label: "Status",
         options: [
           { value: "", label: "All statuses" },
-          { value: "awaiting_payment", label: "Awaiting payment" },
-          { value: "paid", label: "Paid" },
+          { value: "awaiting_payment", label: "Waiting to connect" },
+          { value: "paid", label: "Connected" },
           { value: "expired", label: "Payment expired" },
         ],
         matches: (row, value) => row.outcome === value,
@@ -86,7 +86,7 @@ export function HistoryPage() {
     <div className="grid gap-6">
       <PageHeader
         title="History"
-        subtitle="Today in detail. Earlier days show counts only, because request details are deleted 24 hours after they close."
+        subtitle="Claims you've made, including earlier days. Patient details stay on the claim."
       />
       <DataTable
         label="Today's claims"

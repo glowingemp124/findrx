@@ -48,8 +48,8 @@ export function BarChart({
     <div ref={ref} className="relative w-full" style={{ height }} onMouseLeave={() => setHover(null)}>
       {width > 0 ? (
         <svg width={width} height={height} role="img" aria-label={ariaLabel} className="overflow-visible">
-          {ticks.map((tick) => (
-            <g key={tick}>
+          {ticks.map((tick, index) => (
+            <g key={index}>
               <line x1={left} x2={width} y1={y(tick)} y2={y(tick)} stroke="var(--line)" />
               <text x={left - 8} y={y(tick)} dy="0.32em" textAnchor="end" className="fill-muted text-[11px] tabular-nums">
                 {format(tick)}
@@ -61,7 +61,7 @@ export function BarChart({
             const radius = Math.min(4, barWidth / 2);
             const active = hover === index;
             return (
-              <g key={item.label} onMouseEnter={() => setHover(index)}>
+              <g key={`${item.label}-${index}`} onMouseEnter={() => setHover(index)}>
                 {/* Hit target wider than the bar. */}
                 <rect x={left + slot * index} y={top} width={slot} height={plotHeight} fill="transparent" />
                 <rect

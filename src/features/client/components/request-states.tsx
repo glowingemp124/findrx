@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { paths } from "@/app/paths";
 import { Button } from "@/components/ui/button";
@@ -20,11 +20,15 @@ import {
   summarizeMedication,
 } from "@/features/requests/lib/formatters";
 import { draftStore } from "@/features/client/services/draft-store";
+import { DEMO_ACCOUNT } from "@/features/auth/seed-pharmacies";
+import { pharmaciesNear } from "@/features/client/lib/pharmacy-coverage";
+import { claimRequest } from "@/features/pharmacy/services/claim-request";
 import { requestService } from "@/features/requests/services/request-service";
 import { platformSettings } from "@/features/platform/platform-settings";
 import type { BlindRequest } from "@/features/requests/types";
 
-const areaSummary = (request: BlindRequest) => `${request.draft.area} · ${request.draft.radiusMiles} miles`;
+const areaSummary = (request: BlindRequest) =>
+  request.draft.radiusMiles <= 0 ? `${request.draft.area} · Any distance` : `${request.draft.area} · ${request.draft.radiusMiles} miles`;
 
 function StartOver({ label = "Find a medication" }: { label?: string }) {
   const navigate = useNavigate();
@@ -43,7 +47,7 @@ export function RequestNotFound() {
       <RequestCard>
         <Badge tone="muted">Link expired</Badge>
         <RequestHeading title="This request is no longer available">
-          Requests are deleted 24 hours after they close. If you didn't pay, nothing was charged.
+          Requests are kept, so you can look this one up later from My requests. If you didn't pay, nothing was charged.
         </RequestHeading>
         <StartOver label="Start a new request" />
       </RequestCard>
@@ -53,6 +57,19 @@ export function RequestNotFound() {
 
 export function LiveRequest({ request, now }: { request: BlindRequest; now: number }) {
   const { draft } = request;
+
+  useEffect(() => {
+    if (request.simulated || request.postedAt === null) return;
+    const { latitude, longitude, radiusMiles, needsCompounding } = request.draft;
+    if (latitude != null && longitude != null) {
+      const covered = pharmaciesNear({ lat: latitude, lng: longitude }, radiusMiles, needsCompounding);
+      if (!covered.some((pharmacy) => pharmacy.id === DEMO_ACCOUNT.id)) return;
+    }
+    const remaining = request.postedAt + clientConfig.pharmacyAcceptMs - Date.now();
+    const timer = window.setTimeout(() => claimRequest(DEMO_ACCOUNT, request.id), Math.max(0, remaining));
+    return () => window.clearTimeout(timer);
+  }, [request.id, request.postedAt, request.simulated, request.draft]);
+
   return (
     <RequestCard>
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -62,9 +79,17 @@ export function LiveRequest({ request, now }: { request: BlindRequest; now: numb
         <Badge tone="good">No charge unless found</Badge>
       </div>
       <RequestHeading title="Your Blind Request is live">
-        We've sent it to <strong>{request.notifiedPharmacies}</strong> participating pharmacies within{" "}
-        <strong>{draft.radiusMiles} miles</strong> of <strong>{draft.area}</strong>. We'll text you as soon as one confirms
-        it has it.
+        We've sent it to <strong>{request.notifiedPharmacies}</strong> participating pharmacies{" "}
+        {draft.radiusMiles <= 0 ? (
+          <>
+            at any distance from <strong>{draft.area}</strong>
+          </>
+        ) : (
+          <>
+            within <strong>{draft.radiusMiles} miles</strong> of <strong>{draft.area}</strong>
+          </>
+        )}
+        . We'll text you as soon as one confirms it has it.
       </RequestHeading>
       <Countdown
         label="Time in queue"
@@ -92,14 +117,15 @@ export function LiveRequest({ request, now }: { request: BlindRequest; now: numb
 }
 
 export function NoMatchRequest({ request }: { request: BlindRequest }) {
-  const wider = platformSettings.use().searchRadii.filter((radius) => radius > request.draft.radiusMiles);
+  const miles = request.draft.radiusMiles;
+  const wider = miles <= 0 ? [] : platformSettings.use().searchRadii.filter((radius) => radius > miles);
   const [radius, setRadius] = useState(wider[0] ?? null);
 
   return (
     <RequestCard>
       <Badge tone="warn">No match yet · {request.reference}</Badge>
       <RequestHeading title="No pharmacy has confirmed it yet">
-        None of the {request.notifiedPharmacies} pharmacies within {request.draft.radiusMiles} miles has confirmed in the
+        None of the {request.notifiedPharmacies} pharmacies {miles <= 0 ? "at any distance" : `within ${miles} miles`} has confirmed in the
         last {clientConfig.queueWindowMs / 60_000} minutes. Nothing has been charged.
       </RequestHeading>
       <DetailList
@@ -163,7 +189,7 @@ export function CheckoutClosed({ request }: { request: BlindRequest }) {
           Edit and repost
         </Button>
       </div>
-      <p className="text-sm text-muted">This link works for 24 hours. After that, start a new request.</p>
+      <p className="text-sm text-muted">You can find this request again from My requests, using your mobile number.</p>
     </RequestCard>
   );
 }
@@ -173,7 +199,7 @@ export function ClosedRequest({ request }: { request: BlindRequest }) {
     <RequestCard>
       <Badge tone="muted">Closed · {request.reference}</Badge>
       <RequestHeading title="Your request is closed">
-        Nothing was charged. Your request details are deleted 24 hours after closing.
+        Nothing was charged. You can look this request up later from My requests.
       </RequestHeading>
       <StartOver />
     </RequestCard>

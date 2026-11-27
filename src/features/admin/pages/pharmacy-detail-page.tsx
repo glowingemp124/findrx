@@ -15,6 +15,8 @@ import { can } from "@/features/admin/lib/permissions";
 import { ACTION_LABELS, pharmacyReview, type ReviewAction } from "@/features/admin/services/pharmacy-review";
 import type { AdminSession } from "@/features/admin/types";
 import { authService } from "@/features/auth/auth-service";
+import { ProfileChangePanel } from "@/features/admin/components/profile-change-panel";
+import { disputeStore } from "@/features/requests/services/dispute-store";
 import type { PharmacyAccount } from "@/features/auth/types";
 import { formatUsd } from "@/features/requests/lib/formatters";
 import { transactionStore } from "@/features/requests/services/transaction-store";
@@ -214,6 +216,7 @@ export function PharmacyDetailPage() {
 
   const checked = pharmacyReview.wasChecked(reviews, pharmacy.id);
   const history = reviews.filter((entry) => entry.pharmacyId === pharmacy.id);
+  const disputes = disputeStore.use().filter((item) => item.pharmacyId === pharmacy.id);
   const paid = transactions.filter((item) => item.pharmacyId === pharmacy.id && item.status === "paid");
   const { pharmacy: details } = pharmacy;
 
@@ -276,6 +279,7 @@ export function PharmacyDetailPage() {
 
         <div className="grid gap-4">
           <DecisionPanel pharmacy={pharmacy} account={account} />
+          <ProfileChangePanel pharmacyId={pharmacy.id} adminName={account.name} />
           <Panel title="Activity" delay={100}>
             <dl className="mb-4 grid grid-cols-2 gap-3">
               <div className="rounded-[14px] bg-side-well p-3">
@@ -283,8 +287,16 @@ export function PharmacyDetailPage() {
                 <dd className="text-xl font-bold tabular-nums">{paid.length}</dd>
               </div>
               <div className="rounded-[14px] bg-side-well p-3">
+                <dt className="text-sm text-muted">Unfulfilled reports</dt>
+                <dd className="text-xl font-bold tabular-nums">{disputes.length}</dd>
+              </div>
+              <div className="rounded-[14px] bg-side-well p-3">
                 <dt className="text-sm text-muted">Fees earned</dt>
                 <dd className="text-xl font-bold tabular-nums">{formatUsd(paid.reduce((sum, item) => sum + item.amountCents, 0))}</dd>
+              </div>
+              <div className="rounded-[14px] bg-side-well p-3">
+                <dt className="text-sm text-muted">Refunded reports</dt>
+                <dd className="text-xl font-bold tabular-nums">{disputes.filter((item) => item.status === "refunded").length}</dd>
               </div>
             </dl>
             {history.length === 0 ? (

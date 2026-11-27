@@ -11,9 +11,9 @@ import { VerifyOtpPage } from "@/features/auth/verify-otp-page";
 import { ClientLayout } from "@/features/client/components/client-layout";
 import { ConnectedPage } from "@/features/client/pages/connected-page";
 import { LandingPage } from "@/features/client/pages/landing-page";
+import { MyRequestsPage } from "@/features/client/pages/my-requests-page";
 import { PayPage } from "@/features/client/pages/pay-page";
 import { RequestStatusPage } from "@/features/client/pages/request-status-page";
-import { ClientTermsPage } from "@/features/client/pages/terms-page";
 import { AdminGuestOnly, AdminIndexRedirect, RequireAdmin, RequireModule } from "@/features/admin/auth/admin-guards";
 import { AdminLoginPage } from "@/features/admin/auth/admin-login-page";
 import { AdminVerifyPage } from "@/features/admin/auth/admin-verify-page";
@@ -25,12 +25,14 @@ const PharmacyDashboardPage = lazyNamed(() => import("@/features/pharmacy/pages/
 const LiveRequestsPage = lazyNamed(() => import("@/features/pharmacy/pages/live-requests-page"), "LiveRequestsPage");
 const MyClaimsPage = lazyNamed(() => import("@/features/pharmacy/pages/my-claims-page"), "MyClaimsPage");
 const SettingsPage = lazyNamed(() => import("@/features/pharmacy/pages/settings-page"), "SettingsPage");
+const MedicationsPage = lazyNamed(() => import("@/features/pharmacy/pages/medications-page"), "MedicationsPage");
 const AdminLayout = lazyNamed(() => import("@/features/admin/components/admin-layout"), "AdminLayout");
 const DashboardPage = lazyNamed(() => import("@/features/admin/pages/dashboard-page"), "DashboardPage");
 const PharmaciesPage = lazyNamed(() => import("@/features/admin/pages/pharmacies-page"), "PharmaciesPage");
 const PharmacyDetailPage = lazyNamed(() => import("@/features/admin/pages/pharmacy-detail-page"), "PharmacyDetailPage");
 const AdminProfilePage = lazyNamed(() => import("@/features/admin/pages/profile-page"), "AdminProfilePage");
 const AdminSettingsPage = lazyNamed(() => import("@/features/admin/pages/settings-page"), "AdminSettingsPage");
+const LegalPage = lazyNamed(() => import("@/features/admin/pages/legal-page"), "LegalPage");
 const StaffPage = lazyNamed(() => import("@/features/admin/pages/staff-page"), "StaffPage");
 const TransactionsPage = lazyNamed(() => import("@/features/admin/pages/transactions-page"), "TransactionsPage");
 
@@ -41,7 +43,9 @@ export function AppRoutes() {
         {/* Client: public, no account. */}
         <Route element={<ClientLayout />}>
           <Route index element={<LandingPage />} />
-          <Route path="terms" element={<ClientTermsPage />} />
+          <Route path="terms" element={<LandingPage />} />
+          <Route path="privacy" element={<LandingPage />} />
+          <Route path="my-requests" element={<MyRequestsPage />} />
           <Route path="request/:requestId">
             <Route index element={<RequestStatusPage />} />
             <Route path="pay" element={<PayPage />} />
@@ -66,6 +70,7 @@ export function AppRoutes() {
             <Route path="requests" element={<LiveRequestsPage />} />
             <Route path="claims/:tab?" element={<MyClaimsPage />} />
             <Route path="history" element={<HistoryPage />} />
+            <Route path="medications" element={<MedicationsPage />} />
             <Route path="settings/:tab?" element={<SettingsPage />} />
             <Route path="*" element={<Navigate to={paths.pharmacy.dashboard} replace />} />
           </Route>
@@ -86,6 +91,7 @@ export function AppRoutes() {
               <Route path="transactions" element={<RequireModule module="transactions"><TransactionsPage /></RequireModule>} />
               <Route path="staff" element={<RequireModule module="staff"><StaffPage /></RequireModule>} />
               <Route path="settings" element={<RequireModule module="settings"><AdminSettingsPage /></RequireModule>} />
+              <Route path="legal" element={<RequireModule module="legal"><LegalPage /></RequireModule>} />
               <Route path="profile/:tab?" element={<AdminProfilePage />} />
               <Route path="*" element={<AdminIndexRedirect />} />
             </Route>

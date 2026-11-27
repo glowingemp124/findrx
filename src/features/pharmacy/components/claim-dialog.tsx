@@ -52,8 +52,7 @@ export function ClaimDialog({ item, onCancel, onConfirm }: ClaimDialogProps) {
           )}
         </Checkbox>
         <p className="text-md text-muted">
-          The patient gets a text to pay within 1 hour. You'll see their name and number only after they pay. Claiming
-          without stock is logged and can lead to suspension.
+          You'll see their name and number only after the patient connects. Claiming without stock is logged and can lead to suspension.
         </p>
         {error ? <Notice tone="bad">{error}</Notice> : null}
         <div className="flex flex-wrap gap-2.5">
